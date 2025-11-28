@@ -5,22 +5,30 @@ namespace App\Http\Controllers\Kasir;
 use App\Http\Controllers\Controller;
 use App\Models\Item;
 use Illuminate\Http\Request;
-// use Illuminate\Support\Facades\Storage; // Tidak dipakai lagi di Vercel
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary; // <--- WAJIB: Import Cloudinary
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary; // Wajib import ini
 
 class ItemController extends Controller
 {
+    /**
+     * Menampilkan daftar menu
+     */
     public function index()
     {
         $items = Item::all();
         return view('kasir.items.index', compact('items'));
     }
 
+    /**
+     * Menampilkan form tambah menu
+     */
     public function create()
     {
         return view('kasir.items.create');
     }
 
+    /**
+     * Menyimpan data menu baru ke database & Cloudinary
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -32,13 +40,14 @@ class ItemController extends Controller
 
         $imageUrl = null;
 
+        // --- PROSES UPLOAD CLOUDINARY ---
         if ($request->hasFile('image')) {
-            // --- UBAHAN KHUSUS VERCEL (CLOUDINARY) ---
-            // Upload file ke Cloudinary dan ambil URL HTTPS-nya yang aman
+            // Upload ke Cloudinary folder 'kantin_items'
             $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
-                'folder' => 'kantin_items' // Nama folder di Cloudinary (opsional)
+                'folder' => 'kantin_items'
             ]);
             
+            // Ambil URL HTTPS yang aman
             $imageUrl = $uploadedFile->getSecurePath();
         }
 
@@ -46,17 +55,32 @@ class ItemController extends Controller
             'nama' => $request->nama,
             'harga' => $request->harga,
             'stok' => $request->stok,
-            'image' => $imageUrl, // Simpan URL Cloudinary (https://...), bukan path lokal
+            'image' => $imageUrl, // Simpan URL internet, bukan path lokal
         ]);
 
         return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
     }
 
+    /**
+     * Menampilkan detail menu (Mencegah Error 500)
+     */
+    public function show(Item $item)
+    {
+        // Karena tidak ada halaman detail khusus, kita arahkan ke edit saja
+        return redirect()->route('kasir.items.edit', $item->id);
+    }
+
+    /**
+     * Menampilkan form edit menu
+     */
     public function edit(Item $item)
     {
         return view('kasir.items.edit', compact('item'));
     }
 
+    /**
+     * Mengupdate data menu
+     */
     public function update(Request $request, Item $item)
     {
         $request->validate([
@@ -69,10 +93,7 @@ class ItemController extends Controller
         $data = $request->only(['nama', 'harga', 'stok']);
 
         if ($request->hasFile('image')) {
-            // --- UBAHAN KHUSUS VERCEL (CLOUDINARY) ---
-            // Kita langsung timpa dengan gambar baru. 
-            // (Menghapus gambar lama di Cloudinary agak rumit, untuk pemula cukup upload baru saja)
-            
+            // --- UPLOAD CLOUDINARY BARU ---
             $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
                 'folder' => 'kantin_items'
             ]);
@@ -85,21 +106,23 @@ class ItemController extends Controller
         return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil diperbarui!');
     }
 
+    /**
+     * Menghapus menu
+     */
     public function destroy(Item $item)
     {
-        // --- UBAHAN KHUSUS VERCEL ---
-        // Kita matikan fitur delete file fisik, karena Vercel Read-Only.
-        // Hapus data di database saja sudah cukup agar tidak error.
-        
-        /* if ($item->image && Storage::disk('public')->exists($item->image)) {
-            Storage::disk('public')->delete($item->image);
-        }
-        */
+        // KHUSUS VERCEL: Jangan gunakan Storage::delete() untuk file lokal.
+        // File di Cloudinary biarkan saja (atau hapus lewat dashboard jika penuh).
+        // Kita cukup hapus data di database agar tidak error "Read-only file system".
 
         $item->delete();
+        
         return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil dihapus!');
     }
 
+    /**
+     * Fitur Cetak Laporan
+     */
     public function printMenu()
     {
         $items = Item::all();
