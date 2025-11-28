@@ -49,15 +49,10 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @if($item->image)
-                                                {{-- 
-                                                    LOGIKA:
-                                                    Jika link dimulai dengan 'http' (berarti dari Cloudinary), tampilkan langsung.
-                                                    Jika tidak (berarti gambar lama dari storage lokal laptop), coba tampilkan pakai asset storage.
-                                                --}}
-                                                @if(Str::startsWith($item->image, 'http'))
+                                                {{-- FIX: Gunakan str_starts_with agar lebih aman --}}
+                                                @if(str_starts_with($item->image, 'http'))
                                                     <img src="{{ $item->image }}" alt="{{ $item->nama }}" class="h-12 w-12 rounded object-cover border">
                                                 @else
-                                                    {{-- Fallback untuk gambar lama (mungkin broken di Vercel tapi aman di local) --}}
                                                     <img src="{{ asset('storage/' . $item->image) }}" alt="{{ $item->nama }}" class="h-12 w-12 rounded object-cover border">
                                                 @endif
                                             @else
