@@ -14,17 +14,20 @@
                         @csrf
                         @method('PUT')
 
-                        <!-- Preview Gambar Lama -->
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Foto Saat Ini</label>
                             @if($item->image)
-                                <img src="{{ asset('storage/' . $item->image) }}" alt="Menu Image" class="w-32 h-32 object-cover rounded border">
+                                {{-- Cek apakah gambar dari Cloudinary (http) atau Lokal --}}
+                                @if(Str::startsWith($item->image, 'http'))
+                                    <img src="{{ $item->image }}" alt="Menu Image" class="w-32 h-32 object-cover rounded border">
+                                @else
+                                    <img src="{{ asset('storage/' . $item->image) }}" alt="Menu Image" class="w-32 h-32 object-cover rounded border">
+                                @endif
                             @else
                                 <span class="text-gray-500 italic">Tidak ada gambar</span>
                             @endif
                         </div>
 
-                        <!-- Upload Gambar Baru -->
                         <div class="mb-4">
                             <x-input-label for="image" :value="__('Ganti Foto (Opsional)')" />
                             <input id="image" class="block mt-1 w-full border border-gray-300 rounded p-2" type="file" name="image" accept="image/*" />
@@ -32,19 +35,16 @@
                             <x-input-error :messages="$errors->get('image')" class="mt-2" />
                         </div>
 
-                        <!-- Nama Menu -->
                         <div class="mb-4">
                             <x-input-label for="nama" :value="__('Nama Menu')" />
                             <x-text-input id="nama" class="block mt-1 w-full" type="text" name="nama" :value="old('nama', $item->nama)" required />
                         </div>
 
-                        <!-- Harga -->
                         <div class="mb-4">
                             <x-input-label for="harga" :value="__('Harga')" />
                             <x-text-input id="harga" class="block mt-1 w-full" type="number" name="harga" :value="old('harga', $item->harga)" required />
                         </div>
 
-                        <!-- Stok -->
                         <div class="mb-4">
                             <x-input-label for="stok" :value="__('Stok')" />
                             <x-text-input id="stok" class="block mt-1 w-full" type="number" name="stok" :value="old('stok', $item->stok)" required />
