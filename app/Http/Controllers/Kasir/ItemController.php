@@ -5,8 +5,6 @@ namespace App\Http\Controllers\Kasir;
 use App\Http\Controllers\Controller;
 use App\Models\Item;
 use Illuminate\Http\Request;
-// Import Facade Cloudinary (Wajib agar tidak error Class Not Found)
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary; 
 
 class ItemController extends Controller
 {
@@ -32,6 +30,7 @@ class ItemController extends Controller
      */
     public function store(Request $request)
     {
+        // 1. Validasi Input
         $request->validate([
             'nama' => 'required|string|max:255',
             'harga' => 'required|integer|min:0',
@@ -42,38 +41,42 @@ class ItemController extends Controller
         try {
             $imageUrl = null;
 
-            // --- PROSES UPLOAD CLOUDINARY ---
+            // 2. Cek apakah ada file gambar yang diupload
             if ($request->hasFile('image')) {
-                // Upload ke Cloudinary folder 'kantin_items'
-                $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
+                
+                // --- UPLOAD KE CLOUDINARY (Cara Stabil) ---
+                // Kita gunakan fungsi helper cloudinary() langsung
+                $uploadedFile = cloudinary()->upload($request->file('image')->getRealPath(), [
                     'folder' => 'kantin_items'
                 ]);
                 
-                // Ambil URL HTTPS yang aman (https://...)
+                // Ambil URL aman (https)
                 $imageUrl = $uploadedFile->getSecurePath();
             }
 
+            // 3. Simpan ke Database Neon
             Item::create([
                 'nama' => $request->nama,
                 'harga' => $request->harga,
                 'stok' => $request->stok,
-                'image' => $imageUrl, // Simpan URL internet
+                'image' => $imageUrl, // Simpan link internet
             ]);
 
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
 
         } catch (\Exception $e) {
-            // Jika error, kembalikan ke form dengan pesan error (JANGAN 500 SERVER ERROR)
-            return back()->withInput()->withErrors(['image' => 'Gagal upload: ' . $e->getMessage()]);
+            // Jika Error (misal Cloudinary putus), kembalikan ke form dengan pesan jelas
+            return back()
+                ->withInput()
+                ->withErrors(['image' => 'Gagal Upload: ' . $e->getMessage() . '. Cek CLOUDINARY_URL di Vercel!']);
         }
     }
 
     /**
-     * Menampilkan detail menu (PENTING: Mencegah Error 500)
+     * Menampilkan detail menu (PENTING: Mencegah Error 500 jika diklik)
      */
     public function show(Item $item)
     {
-        // Redirect ke edit karena kita tidak punya halaman detail khusus
         return redirect()->route('kasir.items.edit', $item->id);
     }
 
@@ -101,12 +104,12 @@ class ItemController extends Controller
             $data = $request->only(['nama', 'harga', 'stok']);
 
             if ($request->hasFile('image')) {
-                // --- UPLOAD CLOUDINARY BARU ---
-                $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
+                // --- UPLOAD KE CLOUDINARY (Update) ---
+                $uploadedFile = cloudinary()->upload($request->file('image')->getRealPath(), [
                     'folder' => 'kantin_items'
                 ]);
 
-                // Ganti link gambar di database dengan link baru
+                // Ganti link lama dengan link baru
                 $data['image'] = $uploadedFile->getSecurePath();
             }
 
@@ -115,8 +118,7 @@ class ItemController extends Controller
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil diperbarui!');
 
         } catch (\Exception $e) {
-            // Tangkap error jika Cloudinary bermasalah
-            return back()->withInput()->withErrors(['image' => 'Gagal update gambar: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors(['image' => 'Gagal Update: ' . $e->getMessage()]);
         }
     }
 
@@ -126,7 +128,7 @@ class ItemController extends Controller
     public function destroy(Item $item)
     {
         // KHUSUS VERCEL: 
-        // Jangan gunakan Storage::delete() untuk file lokal karena Vercel Read-Only.
+        // Jangan pakai Storage::delete() karena Vercel Read-Only.
         // Cukup hapus data di database saja.
         
         $item->delete();
