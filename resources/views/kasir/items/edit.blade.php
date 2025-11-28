@@ -17,8 +17,8 @@
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Foto Saat Ini</label>
                             @if($item->image)
-                                {{-- Cek apakah gambar dari Cloudinary (http) atau Lokal --}}
-                                @if(Str::startsWith($item->image, 'http'))
+                                {{-- PERBAIKAN DI SINI: Pakai str_starts_with (PHP Native) biar tidak error Class Not Found --}}
+                                @if(str_starts_with($item->image, 'http'))
                                     <img src="{{ $item->image }}" alt="Menu Image" class="w-32 h-32 object-cover rounded border">
                                 @else
                                     <img src="{{ asset('storage/' . $item->image) }}" alt="Menu Image" class="w-32 h-32 object-cover rounded border">
