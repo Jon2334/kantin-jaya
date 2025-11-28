@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Kasir;
 use App\Http\Controllers\Controller;
 use App\Models\Item;
 use Illuminate\Http\Request;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary; // Wajib import ini
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary; // <--- WAJIB IMPORT INI
 
 class ItemController extends Controller
 {
@@ -47,7 +47,7 @@ class ItemController extends Controller
                 'folder' => 'kantin_items'
             ]);
             
-            // Ambil URL HTTPS yang aman
+            // Ambil URL HTTPS yang aman (https://...)
             $imageUrl = $uploadedFile->getSecurePath();
         }
 
@@ -98,6 +98,7 @@ class ItemController extends Controller
                 'folder' => 'kantin_items'
             ]);
 
+            // Ganti link gambar di database dengan link baru dari Cloudinary
             $data['image'] = $uploadedFile->getSecurePath();
         }
 
