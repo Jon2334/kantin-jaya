@@ -5,7 +5,6 @@
                 {{ __('Kelola Menu & Stok') }}
             </h2>
             <div class="flex gap-2">
-                <!-- Tombol Cetak Laporan Menu (BARU) -->
                 <a href="{{ route('kasir.items.print') }}" target="_blank" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded shadow flex items-center transition duration-150 ease-in-out">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                     Cetak Laporan
@@ -23,6 +22,13 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     
+                    @if(session('success'))
+                        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+                            <strong class="font-bold">Sukses!</strong>
+                            <span class="block sm:inline">{{ session('success') }}</span>
+                        </div>
+                    @endif
+
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 align-middle">
                             <thead class="bg-gray-50">
@@ -41,10 +47,19 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {{ $index + 1 }}
                                         </td>
-                                        <!-- Menampilkan Foto -->
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @if($item->image)
-                                                <img src="{{ asset('storage/' . $item->image) }}" alt="{{ $item->nama }}" class="h-12 w-12 rounded object-cover border">
+                                                {{-- 
+                                                    LOGIKA:
+                                                    Jika link dimulai dengan 'http' (berarti dari Cloudinary), tampilkan langsung.
+                                                    Jika tidak (berarti gambar lama dari storage lokal laptop), coba tampilkan pakai asset storage.
+                                                --}}
+                                                @if(Str::startsWith($item->image, 'http'))
+                                                    <img src="{{ $item->image }}" alt="{{ $item->nama }}" class="h-12 w-12 rounded object-cover border">
+                                                @else
+                                                    {{-- Fallback untuk gambar lama (mungkin broken di Vercel tapi aman di local) --}}
+                                                    <img src="{{ asset('storage/' . $item->image) }}" alt="{{ $item->nama }}" class="h-12 w-12 rounded object-cover border">
+                                                @endif
                                             @else
                                                 <div class="h-12 w-12 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
                                                     No IMG
