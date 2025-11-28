@@ -5,7 +5,8 @@ namespace App\Http\Controllers\Kasir;
 use App\Http\Controllers\Controller;
 use App\Models\Item;
 use Illuminate\Http\Request;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary; // <--- WAJIB IMPORT INI
+// Import Facade Cloudinary (Wajib agar tidak error Class Not Found)
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary; 
 
 class ItemController extends Controller
 {
@@ -62,13 +63,13 @@ class ItemController extends Controller
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
 
         } catch (\Exception $e) {
-            // Jika error (misal koneksi Cloudinary gagal), kembalikan ke form dengan pesan error
-            return back()->withInput()->withErrors(['image' => 'Gagal upload gambar: ' . $e->getMessage()]);
+            // Jika error, kembalikan ke form dengan pesan error (JANGAN 500 SERVER ERROR)
+            return back()->withInput()->withErrors(['image' => 'Gagal upload: ' . $e->getMessage()]);
         }
     }
 
     /**
-     * Menampilkan detail menu (Mencegah Error 500)
+     * Menampilkan detail menu (PENTING: Mencegah Error 500)
      */
     public function show(Item $item)
     {
@@ -114,7 +115,8 @@ class ItemController extends Controller
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil diperbarui!');
 
         } catch (\Exception $e) {
-            return back()->withInput()->withErrors(['image' => 'Gagal upload gambar: ' . $e->getMessage()]);
+            // Tangkap error jika Cloudinary bermasalah
+            return back()->withInput()->withErrors(['image' => 'Gagal update gambar: ' . $e->getMessage()]);
         }
     }
 
@@ -123,8 +125,9 @@ class ItemController extends Controller
      */
     public function destroy(Item $item)
     {
-        // KHUSUS VERCEL: Jangan gunakan Storage::delete() untuk file lokal.
-        // Kita cukup hapus data di database.
+        // KHUSUS VERCEL: 
+        // Jangan gunakan Storage::delete() untuk file lokal karena Vercel Read-Only.
+        // Cukup hapus data di database saja.
         
         $item->delete();
         
