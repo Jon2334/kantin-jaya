@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\URL;     // <--- TAMBAHAN: Wajib untuk Vercel
+use Illuminate\Support\Facades\Artisan; // <--- TAMBAHAN: Wajib untuk route penyelamat
 use App\Http\Controllers\ProfileController;
 
 // --- IMPORT CONTROLLER KASIR ---
@@ -26,6 +28,11 @@ use App\Http\Controllers\Supplier\InventoryController as SupplierInventory;
 | Web Routes
 |--------------------------------------------------------------------------
 */
+
+// --- SETTING VERCEL: Paksa HTTPS ---
+if (env('APP_ENV') === 'production') {
+    URL::forceScheme('https');
+}
 
 // 1. Route Utama (Redirect Otomatis)
 Route::get('/', function () {
@@ -53,13 +60,13 @@ Route::middleware('auth')->group(function () {
 // 3. ROUTE KASIR (Group name: 'kasir.')
 // -----------------------------------------------------------------------------
 Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->group(function () {
-    // Dashboard (Ini yang dicari oleh error 'kasir.dashboard')
+    // Dashboard
     Route::get('/dashboard', [KasirDashboard::class, 'index'])->name('dashboard');
     
     // Transaksi
     Route::post('/order/{id}/selesai', [KasirDashboard::class, 'cetakStruk'])->name('order.selesai');
     
-    // Cetak Menu (Letakkan SEBELUM resource agar tidak konflik)
+    // Cetak Menu
     Route::get('/items/print', [ItemController::class, 'printMenu'])->name('items.print');
     
     // Kelola Stok Menu
@@ -107,3 +114,40 @@ Route::middleware(['auth', 'role:supplier'])->prefix('supplier')->name('supplier
 });
 
 require __DIR__.'/auth.php';
+
+// =========================================================================
+// 7. ROUTE PENYELAMAT (FIX CONFIG CLOUDINARY)
+// =========================================================================
+Route::get('/fix-cloudinary', function () {
+    try {
+        // 1. Bersihkan semua cache yang nyangkut
+        Artisan::call('config:clear');
+        Artisan::call('cache:clear');
+        Artisan::call('view:clear');
+        Artisan::call('route:clear');
+        
+        // 2. Cek apakah ENV Cloudinary terbaca
+        $url = env('CLOUDINARY_URL');
+        $status = empty($url) ? '<span style="color:red; font-weight:bold;">GAGAL / KOSONG</span>' : '<span style="color:green; font-weight:bold;">AMAN / TERBACA</span>';
+        
+        return "
+            <div style='font-family: sans-serif; padding: 20px;'>
+                <h1>Status Konfigurasi Vercel</h1>
+                <p>Status Cache: <strong>BERHASIL DIBERSIHKAN</strong></p>
+                <hr>
+                <p>Status CLOUDINARY_URL: $status</p>
+                <p>Isi Variable (Disensor): " . ($url ? substr($url, 0, 25) . '*****************' : 'NULL') . "</p>
+                <br>
+                <div style='background: #f0f0f0; padding: 15px; border-radius: 5px;'>
+                    <strong>Panduan:</strong><br>
+                    1. Jika status <b>AMAN</b>, silakan coba upload foto menu sekarang.<br>
+                    2. Jika status <b>GAGAL</b>, berarti kamu salah input di Settings Vercel (Environment Variables).
+                </div>
+                <br>
+                <a href='/' style='background: blue; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Kembali ke Home</a>
+            </div>
+        ";
+    } catch (\Exception $e) {
+        return "ERROR: " . $e->getMessage();
+    }
+});
