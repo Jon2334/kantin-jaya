@@ -38,27 +38,33 @@ class ItemController extends Controller
             'image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $imageUrl = null;
+        try {
+            $imageUrl = null;
 
-        // --- PROSES UPLOAD CLOUDINARY ---
-        if ($request->hasFile('image')) {
-            // Upload ke Cloudinary folder 'kantin_items'
-            $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
-                'folder' => 'kantin_items'
+            // --- PROSES UPLOAD CLOUDINARY ---
+            if ($request->hasFile('image')) {
+                // Upload ke Cloudinary folder 'kantin_items'
+                $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
+                    'folder' => 'kantin_items'
+                ]);
+                
+                // Ambil URL HTTPS yang aman (https://...)
+                $imageUrl = $uploadedFile->getSecurePath();
+            }
+
+            Item::create([
+                'nama' => $request->nama,
+                'harga' => $request->harga,
+                'stok' => $request->stok,
+                'image' => $imageUrl, // Simpan URL internet
             ]);
-            
-            // Ambil URL HTTPS yang aman (https://...)
-            $imageUrl = $uploadedFile->getSecurePath();
+
+            return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
+
+        } catch (\Exception $e) {
+            // Jika error (misal koneksi Cloudinary gagal), kembalikan ke form dengan pesan error
+            return back()->withInput()->withErrors(['image' => 'Gagal upload gambar: ' . $e->getMessage()]);
         }
-
-        Item::create([
-            'nama' => $request->nama,
-            'harga' => $request->harga,
-            'stok' => $request->stok,
-            'image' => $imageUrl, // Simpan URL internet, bukan path lokal
-        ]);
-
-        return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
     }
 
     /**
@@ -66,7 +72,7 @@ class ItemController extends Controller
      */
     public function show(Item $item)
     {
-        // Karena tidak ada halaman detail khusus, kita arahkan ke edit saja
+        // Redirect ke edit karena kita tidak punya halaman detail khusus
         return redirect()->route('kasir.items.edit', $item->id);
     }
 
@@ -90,21 +96,26 @@ class ItemController extends Controller
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $data = $request->only(['nama', 'harga', 'stok']);
+        try {
+            $data = $request->only(['nama', 'harga', 'stok']);
 
-        if ($request->hasFile('image')) {
-            // --- UPLOAD CLOUDINARY BARU ---
-            $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
-                'folder' => 'kantin_items'
-            ]);
+            if ($request->hasFile('image')) {
+                // --- UPLOAD CLOUDINARY BARU ---
+                $uploadedFile = Cloudinary::upload($request->file('image')->getRealPath(), [
+                    'folder' => 'kantin_items'
+                ]);
 
-            // Ganti link gambar di database dengan link baru dari Cloudinary
-            $data['image'] = $uploadedFile->getSecurePath();
+                // Ganti link gambar di database dengan link baru
+                $data['image'] = $uploadedFile->getSecurePath();
+            }
+
+            $item->update($data);
+
+            return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil diperbarui!');
+
+        } catch (\Exception $e) {
+            return back()->withInput()->withErrors(['image' => 'Gagal upload gambar: ' . $e->getMessage()]);
         }
-
-        $item->update($data);
-
-        return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil diperbarui!');
     }
 
     /**
@@ -113,9 +124,8 @@ class ItemController extends Controller
     public function destroy(Item $item)
     {
         // KHUSUS VERCEL: Jangan gunakan Storage::delete() untuk file lokal.
-        // File di Cloudinary biarkan saja (atau hapus lewat dashboard jika penuh).
-        // Kita cukup hapus data di database agar tidak error "Read-only file system".
-
+        // Kita cukup hapus data di database.
+        
         $item->delete();
         
         return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil dihapus!');
