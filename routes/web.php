@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\URL; // PENTING: Import URL Facade
 use App\Http\Controllers\ProfileController;
 
 // --- IMPORT CONTROLLER KASIR ---
@@ -27,7 +28,14 @@ use App\Http\Controllers\Supplier\InventoryController as SupplierInventory;
 |--------------------------------------------------------------------------
 */
 
-// 1. Route Utama (Redirect Otomatis)
+// --- FIX VERCEL CSS/ASSETS ---
+// Memaksa aplikasi menggunakan HTTPS jika berada di environment production (Vercel)
+// Tanpa ini, file CSS/JS akan terblokir karena dianggap "Mixed Content"
+if (app()->environment('production')) {
+    URL::forceScheme('https');
+}
+
+// 1. Route Utama (Redirect Otomatis Berdasarkan Role)
 Route::get('/', function () {
     if (Auth::check()) {
         $role = Auth::user()->role;
@@ -42,7 +50,7 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// 2. Profil User
+// 2. Profil User (Breeze Default)
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -53,13 +61,13 @@ Route::middleware('auth')->group(function () {
 // 3. ROUTE KASIR (Group name: 'kasir.')
 // -----------------------------------------------------------------------------
 Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->group(function () {
-    // Dashboard (Ini yang dicari oleh error 'kasir.dashboard')
+    // Dashboard
     Route::get('/dashboard', [KasirDashboard::class, 'index'])->name('dashboard');
     
     // Transaksi
     Route::post('/order/{id}/selesai', [KasirDashboard::class, 'cetakStruk'])->name('order.selesai');
     
-    // Cetak Menu (Letakkan SEBELUM resource agar tidak konflik)
+    // Cetak Menu (Letakkan SEBELUM resource items agar tidak konflik dengan show/id)
     Route::get('/items/print', [ItemController::class, 'printMenu'])->name('items.print');
     
     // Kelola Stok Menu
@@ -75,7 +83,7 @@ Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->grou
 // 4. ROUTE DAPUR (Group name: 'dapur.')
 // -----------------------------------------------------------------------------
 Route::middleware(['auth', 'role:dapur'])->prefix('dapur')->name('dapur.')->group(function () {
-    // KDS
+    // KDS (Kitchen Display System)
     Route::get('/dashboard', [KdsController::class, 'index'])->name('dashboard');
     Route::patch('/order/{id}/update', [KdsController::class, 'updateStatus'])->name('order.update');
     
@@ -106,4 +114,5 @@ Route::middleware(['auth', 'role:supplier'])->prefix('supplier')->name('supplier
     Route::resource('products', SupplierInventory::class);
 });
 
-require __DIR__.'/auth.php';
+// Auth Routes (Login, Register, dll)
+require _DIR_.'/auth.php';
