@@ -115,4 +115,4 @@ Route::middleware(['auth', 'role:supplier'])->prefix('supplier')->name('supplier
 });
 
 // Auth Routes (Login, Register, dll)
-require _DIR_.'/auth.php';
+require DIR.'/auth.php';
