@@ -13,7 +13,8 @@ class ItemController extends Controller
      */
     public function index()
     {
-        $items = Item::all();
+        // Mengambil data terbaru (latest) agar yang baru diinput muncul di atas
+        $items = Item::latest()->get();
         return view('kasir.items.index', compact('items'));
     }
 
@@ -32,48 +33,50 @@ class ItemController extends Controller
     {
         // 1. Validasi Input
         $request->validate([
-            'nama' => 'required|string|max:255',
+            'nama'  => 'required|string|max:255',
             'harga' => 'required|integer|min:0',
-            'stok' => 'required|integer|min:0',
-            'image' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'stok'  => 'required|integer|min:0',
+            'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048', // Max 2MB
         ]);
 
         try {
             $imageUrl = null;
 
-            // 2. Cek apakah ada file gambar yang diupload
+            // 2. Upload ke Cloudinary
             if ($request->hasFile('image')) {
-                
-                // --- UPLOAD KE CLOUDINARY (Cara Stabil) ---
-                // Kita gunakan fungsi helper cloudinary() langsung
+                // getRealPath() SANGAT PENTING untuk Vercel (Serverless)
                 $uploadedFile = cloudinary()->upload($request->file('image')->getRealPath(), [
-                    'folder' => 'kantin_items'
+                    'folder' => 'kantin_items',
+                    'transformation' => [
+                        'quality' => 'auto', // Optimasi otomatis agar loading cepat
+                        'fetch_format' => 'auto'
+                    ]
                 ]);
-                
-                // Ambil URL aman (https)
+
+                // Ambil URL Secure (HTTPS)
                 $imageUrl = $uploadedFile->getSecurePath();
             }
 
-            // 3. Simpan ke Database Neon
+            // 3. Simpan ke Database NeonDB
             Item::create([
-                'nama' => $request->nama,
+                'nama'  => $request->nama,
                 'harga' => $request->harga,
-                'stok' => $request->stok,
-                'image' => $imageUrl, // Simpan link internet
+                'stok'  => $request->stok,
+                'image' => $imageUrl, // Kita simpan link internetnya
             ]);
 
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
 
         } catch (\Exception $e) {
-            // Jika Error (misal Cloudinary putus), kembalikan ke form dengan pesan jelas
+            // Jika gagal upload, kembalikan user ke form dengan pesan error
             return back()
                 ->withInput()
-                ->withErrors(['image' => 'Gagal Upload: ' . $e->getMessage() . '. Cek CLOUDINARY_URL di Vercel!']);
+                ->withErrors(['image' => 'Gagal Upload ke Cloudinary. Pastikan koneksi internet stabil. Error: ' . $e->getMessage()]);
         }
     }
 
     /**
-     * Menampilkan detail menu (PENTING: Mencegah Error 500 jika diklik)
+     * Menampilkan detail menu (Redirect ke edit untuk mencegah error 500 jika rute show tidak dibuat)
      */
     public function show(Item $item)
     {
@@ -94,31 +97,41 @@ class ItemController extends Controller
     public function update(Request $request, Item $item)
     {
         $request->validate([
-            'nama' => 'required|string|max:255',
+            'nama'  => 'required|string|max:255',
             'harga' => 'required|integer|min:0',
-            'stok' => 'required|integer|min:0',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'stok'  => 'required|integer|min:0',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048', // Nullable: user boleh tidak ganti gambar
         ]);
 
         try {
+            // Siapkan data update (nama, harga, stok)
             $data = $request->only(['nama', 'harga', 'stok']);
 
+            // Cek jika user mengupload gambar baru
             if ($request->hasFile('image')) {
-                // --- UPLOAD KE CLOUDINARY (Update) ---
+                // Upload gambar BARU ke Cloudinary
                 $uploadedFile = cloudinary()->upload($request->file('image')->getRealPath(), [
-                    'folder' => 'kantin_items'
+                    'folder' => 'kantin_items',
+                    'transformation' => [
+                        'quality' => 'auto',
+                        'fetch_format' => 'auto'
+                    ]
                 ]);
 
-                // Ganti link lama dengan link baru
+                // Masukkan link baru ke array data
                 $data['image'] = $uploadedFile->getSecurePath();
             }
+            // Jika tidak ada gambar baru, $data['image'] tidak diset, jadi gambar lama aman di DB
 
+            // Update database
             $item->update($data);
 
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil diperbarui!');
 
         } catch (\Exception $e) {
-            return back()->withInput()->withErrors(['image' => 'Gagal Update: ' . $e->getMessage()]);
+            return back()
+                ->withInput()
+                ->withErrors(['image' => 'Gagal Update: ' . $e->getMessage()]);
         }
     }
 
@@ -127,9 +140,8 @@ class ItemController extends Controller
      */
     public function destroy(Item $item)
     {
-        // KHUSUS VERCEL: 
-        // Jangan pakai Storage::delete() karena Vercel Read-Only.
-        // Cukup hapus data di database saja.
+        // Catatan: Di Vercel/Cloudinary versi simple, kita hanya hapus data di DB.
+        // File di Cloudinary akan tetap ada (orphan), tidak masalah untuk proyek skala kecil.
         
         $item->delete();
         
@@ -137,7 +149,7 @@ class ItemController extends Controller
     }
 
     /**
-     * Fitur Cetak Laporan
+     * Fitur Cetak Laporan (Opsional)
      */
     public function printMenu()
     {

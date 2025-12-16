@@ -2,8 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\URL;     // <--- TAMBAHAN: Wajib untuk Vercel
-use Illuminate\Support\Facades\Artisan; // <--- TAMBAHAN: Wajib untuk route penyelamat
+use Illuminate\Support\Facades\URL;     // PENTING: Untuk HTTPS di Vercel
+use Illuminate\Support\Facades\Artisan; // PENTING: Untuk maintenance command
 use App\Http\Controllers\ProfileController;
 
 // --- IMPORT CONTROLLER KASIR ---
@@ -29,12 +29,12 @@ use App\Http\Controllers\Supplier\InventoryController as SupplierInventory;
 |--------------------------------------------------------------------------
 */
 
-// --- SETTING VERCEL: Paksa HTTPS ---
-if (env('APP_ENV') === 'production') {
+// --- SETTING VERCEL: Paksa HTTPS (Wajib untuk Cloudinary & Keamanan) ---
+if (app()->environment('production')) {
     URL::forceScheme('https');
 }
 
-// 1. Route Utama (Redirect Otomatis)
+// 1. Route Utama (Redirect Otomatis berdasarkan Role)
 Route::get('/', function () {
     if (Auth::check()) {
         $role = Auth::user()->role;
@@ -69,7 +69,8 @@ Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->grou
     // Cetak Menu
     Route::get('/items/print', [ItemController::class, 'printMenu'])->name('items.print');
     
-    // Kelola Stok Menu
+    // Kelola Stok Menu (CRUD + Upload Cloudinary ada di sini)
+    // Resource route ini otomatis membuat: index, create, store, edit, update, destroy
     Route::resource('items', ItemController::class);
     
     // Belanja Stok ke Supplier
@@ -82,7 +83,7 @@ Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->grou
 // 4. ROUTE DAPUR (Group name: 'dapur.')
 // -----------------------------------------------------------------------------
 Route::middleware(['auth', 'role:dapur'])->prefix('dapur')->name('dapur.')->group(function () {
-    // KDS
+    // KDS (Kitchen Display System)
     Route::get('/dashboard', [KdsController::class, 'index'])->name('dashboard');
     Route::patch('/order/{id}/update', [KdsController::class, 'updateStatus'])->name('order.update');
     
@@ -116,38 +117,56 @@ Route::middleware(['auth', 'role:supplier'])->prefix('supplier')->name('supplier
 require __DIR__.'/auth.php';
 
 // =========================================================================
-// 7. ROUTE PENYELAMAT (FIX CONFIG CLOUDINARY)
+// 7. ROUTE PENYELAMAT (DEBUGGING VERCEL)
+// Akses route ini di: https://nama-app-anda.vercel.app/fix-cloudinary
 // =========================================================================
 Route::get('/fix-cloudinary', function () {
     try {
-        // 1. Bersihkan semua cache yang nyangkut
+        // 1. Bersihkan Cache (Penting setelah update env di Vercel)
         Artisan::call('config:clear');
-        Artisan::call('cache:clear');
-        Artisan::call('view:clear');
         Artisan::call('route:clear');
+        Artisan::call('view:clear');
         
-        // 2. Cek apakah ENV Cloudinary terbaca
-        $url = env('CLOUDINARY_URL');
-        $status = empty($url) ? '<span style="color:red; font-weight:bold;">GAGAL / KOSONG</span>' : '<span style="color:green; font-weight:bold;">AMAN / TERBACA</span>';
+        // 2. Cek Koneksi ENV
+        $envUrl = env('CLOUDINARY_URL');
         
+        // 3. Output Status
+        $statusEnv = !empty($envUrl) 
+            ? '<span style="color:green; font-weight:bold;">✅ TERBACA</span>' 
+            : '<span style="color:red; font-weight:bold;">❌ TIDAK TERBACA / NULL</span>';
+
         return "
-            <div style='font-family: sans-serif; padding: 20px;'>
-                <h1>Status Konfigurasi Vercel</h1>
-                <p>Status Cache: <strong>BERHASIL DIBERSIHKAN</strong></p>
-                <hr>
-                <p>Status CLOUDINARY_URL: $status</p>
-                <p>Isi Variable (Disensor): " . ($url ? substr($url, 0, 25) . '*****************' : 'NULL') . "</p>
-                <br>
-                <div style='background: #f0f0f0; padding: 15px; border-radius: 5px;'>
-                    <strong>Panduan:</strong><br>
-                    1. Jika status <b>AMAN</b>, silakan coba upload foto menu sekarang.<br>
-                    2. Jika status <b>GAGAL</b>, berarti kamu salah input di Settings Vercel (Environment Variables).
+            <div style='font-family: sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px;'>
+                <h1 style='color: #333;'>🛠️ Status Konfigurasi Cloudinary</h1>
+                <p>Route ini berfungsi untuk membersihkan cache dan mengecek apakah Environment Variables Vercel sudah masuk ke Laravel.</p>
+                
+                <hr style='margin: 20px 0;'>
+                
+                <div style='background: #fff; padding: 15px; border-radius: 5px; border: 1px solid #eee;'>
+                    <p><strong>Status ENV (CLOUDINARY_URL):</strong> $statusEnv</p>
+                    <p style='font-size: 12px; color: #666;'>
+                        Value: " . ($envUrl ? substr($envUrl, 0, 15) . '... (disensor)' : 'KOSONG') . "
+                    </p>
                 </div>
+
                 <br>
-                <a href='/' style='background: blue; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Kembali ke Home</a>
+                <h3>👉 Langkah Selanjutnya:</h3>
+                <ol style='line-height: 1.6;'>
+                    <li>Jika status <b>TERBACA</b>: Silakan coba menu <b>Kasir -> Tambah Menu</b>.</li>
+                    <li>Jika status <b>TIDAK TERBACA</b>:
+                        <ul>
+                            <li>Buka Dashboard Vercel -> Settings -> Environment Variables.</li>
+                            <li>Pastikan Key <code>CLOUDINARY_URL</code> sudah benar.</li>
+                            <li>Lakukan <b>Redeploy</b> (Wajib) agar env baru terbaca.</li>
+                        </ul>
+                    </li>
+                </ol>
+                
+                <br>
+                <a href='/kasir/items' style='display: inline-block; background: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Coba Upload Menu Sekarang &rarr;</a>
             </div>
         ";
     } catch (\Exception $e) {
-        return "ERROR: " . $e->getMessage();
+        return "<h2 style='color:red'>ERROR SYSTEM:</h2> " . $e->getMessage();
     }
 });
