@@ -5,69 +5,59 @@ namespace App\Http\Controllers\Kasir;
 use App\Http\Controllers\Controller;
 use App\Models\Item;
 use Illuminate\Http\Request;
-use Cloudinary\Configuration\Configuration; // PENTING: Import ini wajib untuk perbaikan manual
+// PENTING: Kita pakai library aslinya langsung
+use Cloudinary\Cloudinary; 
 
 class ItemController extends Controller
 {
-    /**
-     * Konfigurasi Cloudinary Manual (Solusi Anti-Error Vercel)
-     * Fungsi ini dipanggil sebelum upload untuk memastikan kredensial terbaca.
-     */
-    private function forceCloudinaryConfig()
-    {
-        // 1. Coba ambil dari variable terpisah (Saran Utama)
-        $cloudName = env('CLOUDINARY_CLOUD_NAME');
-        $apiKey    = env('CLOUDINARY_API_KEY');
-        $apiSecret = env('CLOUDINARY_API_SECRET');
-
-        // 2. Jika user hanya punya CLOUDINARY_URL (Fallback), kita pecah manual
-        if (!$cloudName && env('CLOUDINARY_URL')) {
-            $url = env('CLOUDINARY_URL');
-            // Format: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
-            // Kita parsing string tersebut:
-            $parsed = parse_url($url);
-            if ($parsed) {
-                $cloudName = $parsed['host']; // Bagian setelah @
-                $apiKey    = $parsed['user'];
-                $apiSecret = $parsed['pass'];
-            }
-        }
-
-        // 3. Terapkan konfigurasi ke Instance Cloudinary
-        if ($cloudName && $apiKey && $apiSecret) {
-            Configuration::instance([
-                'cloud' => [
-                    'cloud_name' => $cloudName,
-                    'api_key'    => $apiKey,
-                    'api_secret' => $apiSecret
-                ],
-                'url' => [
-                    'secure' => true
-                ]
-            ]);
-        }
-    }
-
-    /**
-     * Menampilkan daftar menu
-     */
     public function index()
     {
         $items = Item::latest()->get();
         return view('kasir.items.index', compact('items'));
     }
 
-    /**
-     * Form tambah menu
-     */
     public function create()
     {
         return view('kasir.items.create');
     }
 
-    /**
-     * SIMPAN DATA (CREATE)
-     */
+    // --- FUNGSI BANTUAN UNTUK KONEKSI ---
+    private function getCloudinaryInstance()
+    {
+        // 1. Coba ambil dari variable terpisah (Prioritas)
+        $cloudName = env('CLOUDINARY_CLOUD_NAME');
+        $apiKey    = env('CLOUDINARY_API_KEY');
+        $apiSecret = env('CLOUDINARY_API_SECRET');
+
+        // 2. Jika kosong, coba ambil dari URL panjang
+        if (empty($cloudName)) {
+            $url = env('CLOUDINARY_URL'); // contoh: cloudinary://123:abc@kantin
+            if ($url) {
+                $parsed = parse_url($url);
+                $cloudName = $parsed['host'] ?? null;
+                $apiKey    = $parsed['user'] ?? null;
+                $apiSecret = $parsed['pass'] ?? null;
+            }
+        }
+
+        // 3. Jika masih kosong, matikan proses (Debugging)
+        if (empty($cloudName) || empty($apiKey) || empty($apiSecret)) {
+            throw new \Exception("Kredensial Cloudinary tidak terbaca dari Vercel! Cek Environment Variables.");
+        }
+
+        // 4. Buat objek Cloudinary Native
+        return new Cloudinary([
+            'cloud' => [
+                'cloud_name' => $cloudName,
+                'api_key'    => $apiKey,
+                'api_secret' => $apiSecret,
+            ],
+            'url' => [
+                'secure' => true 
+            ]
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -81,19 +71,21 @@ class ItemController extends Controller
             $imageUrl = null;
 
             if ($request->hasFile('image')) {
-                // PANGGIL FUNGSI PERBAIKAN DI SINI
-                $this->forceCloudinaryConfig();
+                // INSTANSIASI MANUAL
+                $cloudinary = $this->getCloudinaryInstance();
 
-                // Upload menggunakan getRealPath() (Wajib untuk Vercel)
-                $uploadedFile = cloudinary()->upload($request->file('image')->getRealPath(), [
-                    'folder' => 'kantin_items',
-                    'transformation' => [
-                        'quality' => 'auto',
-                        'fetch_format' => 'auto'
+                // UPLOAD PURE PHP
+                $result = $cloudinary->uploadApi()->upload(
+                    $request->file('image')->getRealPath(), // File dari folder temp Vercel
+                    [
+                        'folder' => 'kantin_items',
+                        'resource_type' => 'auto',
+                        'quality' => 'auto'
                     ]
-                ]);
+                );
 
-                $imageUrl = $uploadedFile->getSecurePath();
+                // Ambil URL Secure
+                $imageUrl = $result['secure_url']; 
             }
 
             Item::create([
@@ -106,32 +98,21 @@ class ItemController extends Controller
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
 
         } catch (\Exception $e) {
-            // Tampilkan error detail agar kita tahu salahnya dimana
-            return back()
-                ->withInput()
-                ->withErrors(['image' => 'Gagal Upload: ' . $e->getMessage()]);
+            // Tampilkan pesan error lengkap
+            return back()->withInput()->withErrors(['image' => 'Error: ' . $e->getMessage()]);
         }
     }
 
-    /**
-     * Detail menu (Redirect ke edit)
-     */
     public function show(Item $item)
     {
         return redirect()->route('kasir.items.edit', $item->id);
     }
 
-    /**
-     * Form edit menu
-     */
     public function edit(Item $item)
     {
         return view('kasir.items.edit', compact('item'));
     }
 
-    /**
-     * UPDATE DATA
-     */
     public function update(Request $request, Item $item)
     {
         $request->validate([
@@ -145,41 +126,36 @@ class ItemController extends Controller
             $data = $request->only(['nama', 'harga', 'stok']);
 
             if ($request->hasFile('image')) {
-                // PANGGIL FUNGSI PERBAIKAN DI SINI JUGA
-                $this->forceCloudinaryConfig();
+                // INSTANSIASI MANUAL (Lagi)
+                $cloudinary = $this->getCloudinaryInstance();
 
-                $uploadedFile = cloudinary()->upload($request->file('image')->getRealPath(), [
-                    'folder' => 'kantin_items',
-                    'transformation' => [
-                        'quality' => 'auto',
-                        'fetch_format' => 'auto'
+                $result = $cloudinary->uploadApi()->upload(
+                    $request->file('image')->getRealPath(),
+                    [
+                        'folder' => 'kantin_items',
+                        'resource_type' => 'auto',
+                        'quality' => 'auto'
                     ]
-                ]);
+                );
 
-                $data['image'] = $uploadedFile->getSecurePath();
+                $data['image'] = $result['secure_url'];
             }
 
             $item->update($data);
 
-            return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil diperbarui!');
+            return redirect()->route('kasir.items.index')->with('success', 'Menu diperbarui!');
 
         } catch (\Exception $e) {
-            return back()->withInput()->withErrors(['image' => 'Gagal Update: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors(['image' => 'Error: ' . $e->getMessage()]);
         }
     }
 
-    /**
-     * Hapus menu
-     */
     public function destroy(Item $item)
     {
         $item->delete();
-        return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil dihapus!');
+        return redirect()->route('kasir.items.index')->with('success', 'Menu dihapus!');
     }
-
-    /**
-     * Cetak Laporan
-     */
+    
     public function printMenu()
     {
         $items = Item::all();
