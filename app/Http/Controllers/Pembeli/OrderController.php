@@ -14,59 +14,58 @@ class OrderController extends Controller
 {
     /**
      * Menyimpan Pesanan Baru.
-     * Logika:
-     * 1. Filter input (hanya ambil item yang qty > 0).
-     * 2. Validasi stok (Cek apakah stok di DB cukup untuk jumlah yg dipesan).
-     * 3. Jika cukup -> Buat Order & OrderDetail.
-     * 4. Jika tidak -> Batalkan transaksi & beri pesan error.
+     * Logika TERBARU (Potong Awal):
+     * 1. Filter input.
+     * 2. Validasi stok & Lock data (mencegah rebutan).
+     * 3. Buat Order & OrderDetail.
+     * 4. LANGSUNG KURANGI STOK di Database.
      */
     public function store(Request $request)
     {
         // Validasi metode pembayaran
         $request->validate([
             'payment_method' => 'required|in:qris,tunai',
-            'qty' => 'required|array', // Array dari input number: name="qty[item_id]"
+            'qty' => 'required|array', 
         ]);
 
         // 1. Filter keranjang: Ambil hanya item yang jumlah pesannya > 0
-        // $request->qty bentuknya: [item_id => jumlah, item_id => jumlah]
         $cart = array_filter($request->qty, function ($quantity) {
             return $quantity > 0;
         });
 
-        // Jika user klik pesan tapi semua qty 0
         if (empty($cart)) {
             return back()->with('error', 'Silakan pilih minimal satu menu!');
         }
 
-        // 2. Mulai Database Transaction
-        // Menggunakan try-catch agar bisa di-rollback jika stok habis
+        // 2. Mulai Database Transaction (PENTING AGAR DATA KONSISTEN)
         DB::beginTransaction();
 
         try {
-            // Buat Data Order (Kepala Transaksi)
+            // A. Buat Data Order (Kepala Transaksi)
             $order = Order::create([
                 'user_id' => Auth::id(),
                 'payment_method' => $request->payment_method,
-                'status' => 'pending', // Default masuk ke dapur sebagai pending
+                'status' => 'pending', 
             ]);
 
-            // Loop setiap item yang ada di keranjang
+            // B. Loop setiap item
             foreach ($cart as $itemId => $qty) {
-                // Ambil data item terbaru dari DB (gunakan lockForUpdate untuk mencegah race condition)
+                
+                // PENTING: Gunakan lockForUpdate()
+                // Ini mencegah dua orang membeli item terakhir secara bersamaan
                 $itemDb = Item::lockForUpdate()->find($itemId);
 
-                // Cek Validasi Stok
+                // Cek Validasi Item & Stok
                 if (!$itemDb) {
                     throw new \Exception("Item dengan ID $itemId tidak ditemukan.");
                 }
 
                 if ($itemDb->stok < $qty) {
-                    // Jika stok kurang, lempar error (akan ditangkap catch)
-                    throw new \Exception("Stok untuk menu '{$itemDb->nama}' tidak mencukupi! Sisa: {$itemDb->stok}");
+                    // Jika stok kurang, batalkan seluruh pesanan
+                    throw new \Exception("Stok menu '{$itemDb->nama}' tidak cukup! Sisa: {$itemDb->stok}");
                 }
 
-                // Jika Stok Aman, Buat Order Detail
+                // C. Buat Order Detail
                 OrderDetail::create([
                     'order_id' => $order->id,
                     'item_id' => $itemDb->id,
@@ -75,18 +74,20 @@ class OrderController extends Controller
                     'subtotal' => $itemDb->harga * $qty,
                 ]);
                 
-                // CATATAN: Sesuai flowchart Anda, stok baru dikurangi saat KASIR mencetak struk/selesai.
-                // Jadi di sini kita HANYA validasi ketersediaan, belum mengurangi kolom stok di tabel item.
+                // D. --- LOGIKA POTONG STOK DI AWAL ---
+                // Karena stok sudah divalidasi cukup, kita kurangi sekarang juga.
+                $itemDb->stok = $itemDb->stok - $qty;
+                $itemDb->save();
             }
 
             // Jika semua lancar, simpan permanen
             DB::commit();
 
             return redirect()->route('pembeli.dashboard')
-                ->with('success', 'Pesanan berhasil dibuat! Mohon tunggu konfirmasi dapur.');
+                ->with('success', 'Pesanan berhasil! Stok telah diamankan untuk Anda.');
 
         } catch (\Exception $e) {
-            // Jika ada error (stok habis dll), batalkan semua perubahan
+            // Jika error, kembalikan stok seperti semula (Rollback)
             DB::rollback();
             return back()->with('error', 'Gagal memesan: ' . $e->getMessage());
         }
