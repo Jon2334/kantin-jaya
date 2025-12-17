@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Kasir;
 use App\Http\Controllers\Controller;
 use App\Models\Item;
 use Illuminate\Http\Request;
-// PENTING: Kita pakai library aslinya langsung
 use Cloudinary\Cloudinary; 
 
 class ItemController extends Controller
@@ -24,14 +23,12 @@ class ItemController extends Controller
     // --- FUNGSI BANTUAN UNTUK KONEKSI ---
     private function getCloudinaryInstance()
     {
-        // 1. Coba ambil dari variable terpisah (Prioritas)
         $cloudName = env('CLOUDINARY_CLOUD_NAME');
         $apiKey    = env('CLOUDINARY_API_KEY');
         $apiSecret = env('CLOUDINARY_API_SECRET');
 
-        // 2. Jika kosong, coba ambil dari URL panjang
         if (empty($cloudName)) {
-            $url = env('CLOUDINARY_URL'); // contoh: cloudinary://123:abc@kantin
+            $url = env('CLOUDINARY_URL');
             if ($url) {
                 $parsed = parse_url($url);
                 $cloudName = $parsed['host'] ?? null;
@@ -40,12 +37,10 @@ class ItemController extends Controller
             }
         }
 
-        // 3. Jika masih kosong, matikan proses (Debugging)
         if (empty($cloudName) || empty($apiKey) || empty($apiSecret)) {
-            throw new \Exception("Kredensial Cloudinary tidak terbaca dari Vercel! Cek Environment Variables.");
+            throw new \Exception("Kredensial Cloudinary bermasalah.");
         }
 
-        // 4. Buat objek Cloudinary Native
         return new Cloudinary([
             'cloud' => [
                 'cloud_name' => $cloudName,
@@ -71,20 +66,15 @@ class ItemController extends Controller
             $imageUrl = null;
 
             if ($request->hasFile('image')) {
-                // INSTANSIASI MANUAL
                 $cloudinary = $this->getCloudinaryInstance();
-
-                // UPLOAD PURE PHP
                 $result = $cloudinary->uploadApi()->upload(
-                    $request->file('image')->getRealPath(), // File dari folder temp Vercel
+                    $request->file('image')->getRealPath(),
                     [
                         'folder' => 'kantin_items',
                         'resource_type' => 'auto',
                         'quality' => 'auto'
                     ]
                 );
-
-                // Ambil URL Secure
                 $imageUrl = $result['secure_url']; 
             }
 
@@ -98,7 +88,6 @@ class ItemController extends Controller
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
 
         } catch (\Exception $e) {
-            // Tampilkan pesan error lengkap
             return back()->withInput()->withErrors(['image' => 'Error: ' . $e->getMessage()]);
         }
     }
@@ -126,9 +115,7 @@ class ItemController extends Controller
             $data = $request->only(['nama', 'harga', 'stok']);
 
             if ($request->hasFile('image')) {
-                // INSTANSIASI MANUAL (Lagi)
                 $cloudinary = $this->getCloudinaryInstance();
-
                 $result = $cloudinary->uploadApi()->upload(
                     $request->file('image')->getRealPath(),
                     [
@@ -137,12 +124,10 @@ class ItemController extends Controller
                         'quality' => 'auto'
                     ]
                 );
-
                 $data['image'] = $result['secure_url'];
             }
 
             $item->update($data);
-
             return redirect()->route('kasir.items.index')->with('success', 'Menu diperbarui!');
 
         } catch (\Exception $e) {
@@ -156,10 +141,53 @@ class ItemController extends Controller
         return redirect()->route('kasir.items.index')->with('success', 'Menu dihapus!');
     }
     
+    // --- PERBAIKAN DI FUNGSI INI ---
     public function printMenu()
     {
         $items = Item::all();
         $tanggal = date('d-m-Y');
+
+        // Loop setiap item untuk mengubah URL Cloudinary menjadi Base64
+        // Agar bisa dibaca oleh PDF generator atau Printer tanpa error SSL
+        foreach ($items as $item) {
+            // Siapkan property baru sementara
+            $item->base64_image = null; 
+
+            if (!empty($item->image)) {
+                try {
+                    // Cek 1: Apakah ini URL Online (Cloudinary)
+                    if (filter_var($item->image, FILTER_VALIDATE_URL)) {
+                        // Setup context untuk bypass SSL (jaga-jaga error sertifikat)
+                        $arrContextOptions = [
+                            "ssl" => [
+                                "verify_peer" => false,
+                                "verify_peer_name" => false,
+                            ],
+                        ];
+                        
+                        // Download gambar ke memory server sementara
+                        $imageContent = file_get_contents($item->image, false, stream_context_create($arrContextOptions));
+                        
+                        if ($imageContent !== false) {
+                            $base64 = base64_encode($imageContent);
+                            // Set string base64 yang siap pakai di <img src>
+                            $item->base64_image = 'data:image/jpeg;base64,' . $base64; 
+                        }
+                    }
+                    // Cek 2: Apakah ini file Local (jaga-jaga ada data lama bukan Cloudinary)
+                    elseif (file_exists(public_path($item->image))) {
+                        $path = public_path($item->image);
+                        $type = pathinfo($path, PATHINFO_EXTENSION);
+                        $data = file_get_contents($path);
+                        $item->base64_image = 'data:image/' . $type . ';base64,' . base64_encode($data);
+                    }
+                } catch (\Exception $e) {
+                    // Jika gagal download gambar, biarkan null agar tidak error seluruh halaman
+                    $item->base64_image = null;
+                }
+            }
+        }
+
         return view('kasir.items.print_menu', compact('items', 'tanggal'));
     }
 }

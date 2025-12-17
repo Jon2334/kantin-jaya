@@ -53,6 +53,7 @@
             border: 1px solid #ddd;
             display: block;
             margin: 0 auto; /* Tengah horizontal */
+            background-color: #eee;
         }
 
         .signature {
@@ -78,13 +79,13 @@
             /* Paksa browser mencetak background warna (untuk header tabel) */
             body {
                 -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
         }
     </style>
 </head>
 <body>
 
-    <!-- Tombol Print (Hanya tampil di layar) -->
     <div class="no-print" style="text-align: right; margin-bottom: 20px;">
         <button onclick="window.print()" style="padding: 10px 20px; background-color: #4f46e5; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
             🖨️ Cetak Laporan
@@ -104,7 +105,7 @@
         <thead>
             <tr>
                 <th style="width: 5%;">No</th>
-                <th style="width: 15%;">Foto</th> <!-- Kolom Foto Baru -->
+                <th style="width: 15%;">Foto</th> 
                 <th style="width: 35%;">Nama Menu</th>
                 <th style="width: 20%;">Harga Satuan</th>
                 <th style="width: 10%;">Stok</th>
@@ -116,9 +117,16 @@
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td class="text-center">
-                        @if($item->image)
-                            <img src="{{ asset('storage/' . $item->image) }}" alt="{{ $item->nama }}" class="menu-img">
+                        {{-- LOGIKA BARU: Cek Base64 dulu, baru URL biasa --}}
+                        @if(!empty($item->base64_image))
+                            {{-- Prioritas 1: Gunakan Base64 dari Controller (Aman untuk Print) --}}
+                            <img src="{{ $item->base64_image }}" alt="{{ $item->nama }}" class="menu-img">
+                        @elseif(!empty($item->image))
+                            {{-- Prioritas 2: Gunakan URL Asli (Jika Controller gagal convert) --}}
+                            {{-- HAPUS fungsi asset() karena Cloudinary sudah full URL --}}
+                            <img src="{{ $item->image }}" alt="{{ $item->nama }}" class="menu-img">
                         @else
+                            {{-- Prioritas 3: Placeholder jika tidak ada gambar --}}
                             <span style="font-size: 10px; color: #999;">No IMG</span>
                         @endif
                     </td>
@@ -147,15 +155,16 @@
         <p>Mengetahui,</p>
         <p>Manajer Kantin</p>
         <div class="line"></div>
-        <p>{{ Auth::user()->name }}</p>
+        <p>{{ Auth::user()->name ?? 'Administrator' }}</p>
     </div>
 
     <script>
-        // Delay sedikit agar gambar sempat ter-load sebelum dialog print muncul
+        // Script otomatis print saat halaman terbuka
         window.onload = function() {
+            // Kita beri waktu 1 detik agar gambar Base64 ter-render sempurna sebelum dialog print muncul
             setTimeout(function() {
                 window.print();
-            }, 500);
+            }, 1000);
         }
     </script>
 
