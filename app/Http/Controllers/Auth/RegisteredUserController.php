@@ -13,6 +13,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
+// --- TAMBAHAN IMPORT UNTUK OTP ---
+use App\Mail\OtpMail;
+use Illuminate\Support\Facades\Mail;
+use Carbon\Carbon;
+// ---------------------------------
+
 class RegisteredUserController extends Controller
 {
     /**
@@ -30,39 +36,48 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        // 1. Validasi Input
+        // 1. Validasi Input (Tetap pertahankan validasi Role Anda)
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            // PENTING: Tambahkan 'supplier' di sini agar validasi lolos
+            // Validasi role sesuai kode asli Anda (termasuk supplier)
             'role' => ['required', 'in:kasir,pembeli,dapur,supplier'], 
         ]);
 
-        // 2. Buat User Baru di Database
+        // 2. Generate Kode OTP (6 Digit Angka)
+        $otp = rand(100000, 999999);
+
+        // 3. Buat User Baru di Database dengan Data OTP
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role, // Simpan Role yang dipilih
+            'otp_code' => $otp,       // Simpan Kode OTP
+            'otp_expires_at' => Carbon::now()->addMinutes(5), // Berlaku 5 menit
         ]);
 
-        // 3. Trigger Event Registered (Bawaan Laravel)
+        // 4. Trigger Event Registered (Bawaan Laravel)
         event(new Registered($user));
 
-        // 4. Login Otomatis setelah daftar
-        Auth::login($user);
+        // 5. Kirim Email OTP
+        // Gunakan try-catch agar error email tidak membatalkan pendaftaran user
+        try {
+            Mail::to($user->email)->send(new OtpMail($otp));
+        } catch (\Exception $e) {
+            // Log error jika diperlukan, tapi biarkan proses lanjut
+        }
 
-        // 5. Redirect Sesuai Role
-        // Mengarahkan user ke dashboard masing-masing setelah register sukses
-        $url = match ($user->role) {
-            'kasir'    => '/kasir/dashboard',
-            'dapur'    => '/dapur/dashboard',
-            'supplier' => '/supplier/dashboard', // Redirect khusus Supplier
-            'pembeli'  => '/pembeli/dashboard',
-            default    => '/pembeli/dashboard',
-        };
+        // 6. Simpan Email di Session Sementara
+        // Agar halaman verifikasi OTP tahu siapa yang sedang diproses
+        session(['register_email' => $user->email]);
 
-        return redirect($url);
+        // 7. MATIKAN Login Otomatis (PENTING UNTUK OTP)
+        // Auth::login($user); <--- Jangan login dulu sebelum verifikasi!
+
+        // 8. Redirect ke Halaman Input OTP
+        // Logic redirect ke dashboard sesuai role dipindah nanti ke OtpController setelah sukses verifikasi
+        return redirect()->route('otp.verify')->with('success', 'Registrasi berhasil! Kode OTP telah dikirim ke email Anda.');
     }
 }

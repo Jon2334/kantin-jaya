@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\URL;     // PENTING: Untuk HTTPS di Vercel
 use Illuminate\Support\Facades\Artisan; // PENTING: Untuk maintenance command
 use App\Http\Controllers\ProfileController;
 
+// --- IMPORT CONTROLLER AUTH (Termasuk OTP) ---
+use App\Http\Controllers\Auth\OtpController; // [BARU] Tambahkan ini
+
 // --- IMPORT CONTROLLER KASIR ---
 use App\Http\Controllers\Kasir\DashboardController as KasirDashboard;
 use App\Http\Controllers\Kasir\ItemController;
@@ -49,6 +52,16 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// -----------------------------------------------------------------------------
+// [BARU] ROUTE OTP (VERIFIKASI EMAIL)
+// Diletakkan di luar middleware 'auth' karena user belum login saat input OTP
+// -----------------------------------------------------------------------------
+Route::middleware('guest')->group(function () {
+    Route::get('/verify-otp', [OtpController::class, 'create'])->name('otp.verify');
+    Route::post('/verify-otp', [OtpController::class, 'store'])->name('otp.store');
+    Route::post('/resend-otp', [OtpController::class, 'resendOtp'])->name('otp.resend');
+});
+
 // 2. Profil User
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -70,7 +83,6 @@ Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->grou
     Route::get('/items/print', [ItemController::class, 'printMenu'])->name('items.print');
     
     // Kelola Stok Menu (CRUD + Upload Cloudinary ada di sini)
-    // Resource route ini otomatis membuat: index, create, store, edit, update, destroy
     Route::resource('items', ItemController::class);
     
     // Belanja Stok ke Supplier
@@ -148,22 +160,6 @@ Route::get('/fix-cloudinary', function () {
                         Value: " . ($envUrl ? substr($envUrl, 0, 15) . '... (disensor)' : 'KOSONG') . "
                     </p>
                 </div>
-
-                <br>
-                <h3>👉 Langkah Selanjutnya:</h3>
-                <ol style='line-height: 1.6;'>
-                    <li>Jika status <b>TERBACA</b>: Silakan coba menu <b>Kasir -> Tambah Menu</b>.</li>
-                    <li>Jika status <b>TIDAK TERBACA</b>:
-                        <ul>
-                            <li>Buka Dashboard Vercel -> Settings -> Environment Variables.</li>
-                            <li>Pastikan Key <code>CLOUDINARY_URL</code> sudah benar.</li>
-                            <li>Lakukan <b>Redeploy</b> (Wajib) agar env baru terbaca.</li>
-                        </ul>
-                    </li>
-                </ol>
-                
-                <br>
-                <a href='/kasir/items' style='display: inline-block; background: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Coba Upload Menu Sekarang &rarr;</a>
             </div>
         ";
     } catch (\Exception $e) {

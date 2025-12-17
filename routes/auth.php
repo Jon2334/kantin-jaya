@@ -9,6 +9,8 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+// --- TAMBAHAN: Import OtpController ---
+use App\Http\Controllers\Auth\OtpController; 
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -33,6 +35,19 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    // --- TAMBAHAN: Route untuk OTP ---
+    // 1. Menampilkan halaman input OTP
+    Route::get('verify-otp', [OtpController::class, 'create'])
+        ->name('otp.verify');
+
+    // 2. Memproses input OTP
+    Route::post('verify-otp', [OtpController::class, 'store'])
+        ->name('otp.store');
+
+    // 3. Mengirim ulang OTP (Resend)
+    Route::post('resend-otp', [OtpController::class, 'resendOtp'])
+        ->name('otp.resend');
 });
 
 Route::middleware('auth')->group(function () {
