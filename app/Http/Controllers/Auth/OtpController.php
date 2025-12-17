@@ -7,22 +7,29 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
-use App\Mail\OtpMail; // Jangan lupa import ini
-use Illuminate\Support\Facades\Mail; // Jangan lupa import ini
+// PENTING: Import Mail & Mailable agar fitur kirim email berfungsi
+use App\Mail\OtpMail;
+use Illuminate\Support\Facades\Mail;
 
 class OtpController extends Controller
 {
-    // 1. Tampilkan Halaman Input OTP
+    /**
+     * 1. Menampilkan Halaman Input OTP
+     */
     public function create()
     {
-        // Cek apakah ada email di session. Jika tidak, tendang ke login.
+        // Cek apakah ada email di session (dari halaman register)
+        // Jika tidak ada (user tembak url langsung), kembalikan ke login
         if (!session('register_email')) {
             return redirect()->route('login');
         }
+
         return view('auth.verify-otp');
     }
 
-    // 2. Proses Verifikasi OTP
+    /**
+     * 2. Memproses Verifikasi Kode OTP
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -32,48 +39,51 @@ class OtpController extends Controller
         $email = session('register_email');
         $user = User::where('email', $email)->first();
 
-        // Jika user tidak ditemukan (session expired)
+        // Jika user tidak ditemukan (Session expired atau hilang)
         if (!$user) {
             return redirect()->route('register')->withErrors(['email' => 'Sesi habis, silakan daftar ulang.']);
         }
 
-        // Cek Kesesuaian Kode
+        // Cek Kesesuaian Kode OTP
         if ($user->otp_code != $request->otp) {
-            return back()->withErrors(['otp' => 'Kode OTP salah!']);
+            return back()->withErrors(['otp' => 'Kode OTP salah! Silakan cek email Anda.']);
         }
 
-        // Cek Kadaluarsa
+        // Cek Waktu Kadaluarsa
         if (Carbon::now()->greaterThan($user->otp_expires_at)) {
             return back()->withErrors(['otp' => 'Kode OTP sudah kadaluarsa. Silakan minta kirim ulang.']);
         }
 
         // --- SUKSES ---
-        // Bersihkan data OTP dan tandai email verified
+        // 1. Bersihkan data OTP & Tandai Email Terverifikasi
         $user->forceFill([
             'otp_code' => null,
             'otp_expires_at' => null,
             'email_verified_at' => Carbon::now(),
         ])->save();
 
-        // Login User
+        // 2. Login User
         Auth::login($user);
         
-        // Hapus session email
+        // 3. Hapus session email register
         $request->session()->forget('register_email');
         $request->session()->regenerate();
 
-        // Redirect sesuai Role
+        // 4. Redirect ke Dashboard sesuai Role
         $url = match ($user->role) {
             'kasir'    => '/kasir/dashboard',
             'dapur'    => '/dapur/dashboard',
             'supplier' => '/supplier/dashboard',
+            'pembeli'  => '/pembeli/dashboard',
             default    => '/pembeli/dashboard',
         };
 
-        return redirect($url);
+        return redirect($url)->with('success', 'Selamat Datang! Akun berhasil diverifikasi.');
     }
 
-    // 3. LOGIKA KIRIM ULANG OTP (BARU)
+    /**
+     * 3. Fitur Kirim Ulang OTP (Resend)
+     */
     public function resendOtp(Request $request)
     {
         $email = session('register_email');
@@ -86,17 +96,18 @@ class OtpController extends Controller
         // Generate OTP Baru
         $otp = rand(100000, 999999);
         
-        // Update Database
+        // Update Database dengan OTP baru & perpanjang waktu 5 menit
         $user->forceFill([
             'otp_code' => $otp,
             'otp_expires_at' => Carbon::now()->addMinutes(5),
         ])->save();
 
-        // Kirim Email Lagi
+        // Kirim Email
         try {
             Mail::to($user->email)->send(new OtpMail($otp));
         } catch (\Exception $e) {
-            return back()->withErrors(['otp' => 'Gagal mengirim ulang email. Cek koneksi internet.']);
+            // Tampilkan pesan error asli agar kita tahu kenapa gagal (SMTP/Password/Port)
+            return back()->withErrors(['otp' => 'Gagal kirim email: ' . $e->getMessage()]);
         }
 
         return back()->with('success', 'Kode OTP baru telah dikirim ke email Anda!');
