@@ -77,7 +77,7 @@
                                 {{-- INFO PRODUK --}}
                                 <div>
                                     <h4 class="font-bold text-lg text-gray-800">{{ $item->nama }}</h4>
-                                    <p class="text-gray-600 text-sm mb-2">{{ \Illuminate\Support\Str::limit($item->description ?? '', 50) }}</p>
+                                    <p class="...">{{ \Illuminate\Support\Str::limit($item->deskripsi ?? '', 50) }}</p>
                                     <p class="text-indigo-600 font-bold text-lg">Rp {{ number_format($item->harga, 0, ',', '.') }}</p>
                                 </div>
                                 

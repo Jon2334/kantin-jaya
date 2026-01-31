@@ -80,6 +80,7 @@ class ItemController extends Controller
 
             Item::create([
                 'nama'  => $request->nama,
+                'deskripsi' => $request->deskripsi,
                 'harga' => $request->harga,
                 'stok'  => $request->stok,
                 'image' => $imageUrl,

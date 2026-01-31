@@ -16,7 +16,7 @@
                         <div>
                             <x-input-label for="image" :value="__('Foto Makanan')" />
                             <input id="image" 
-                                   class="block mt-1 w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none p-2" 
+                                   class="block mt-1 w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" 
                                    type="file" 
                                    name="image" 
                                    required 
@@ -32,23 +32,45 @@
                         </div>
 
                         <div>
-                            <x-input-label for="harga" :value="__('Harga (Rupiah)')" />
-                            <x-text-input id="harga" class="block mt-1 w-full" type="number" name="harga" :value="old('harga')" required min="0" placeholder="Contoh: 15000" />
-                            <x-input-error :messages="$errors->get('harga')" class="mt-2" />
+                            <x-input-label for="deskripsi" :value="__('Deskripsi Menu (Opsional)')" />
+                            <textarea id="deskripsi" 
+                                      name="deskripsi" 
+                                      rows="3" 
+                                      class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" 
+                                      placeholder="Jelaskan detail menu ini. Contoh: Nasi goreng dengan toping telur mata sapi dan kerupuk udang.">{{ old('deskripsi') }}</textarea>
+                            <p class="mt-1 text-sm text-gray-500">Deskripsi ini akan muncul di hasil pencarian pembeli.</p>
+                            <x-input-error :messages="$errors->get('deskripsi')" class="mt-2" />
                         </div>
 
-                        <div>
-                            <x-input-label for="stok" :value="__('Stok Awal')" />
-                            <x-text-input id="stok" class="block mt-1 w-full" type="number" name="stok" :value="old('stok')" required min="0" placeholder="Contoh: 100" />
-                            <x-input-error :messages="$errors->get('stok')" class="mt-2" />
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <x-input-label for="harga" :value="__('Harga (Rupiah)')" />
+                                <div class="relative mt-1 rounded-md shadow-sm">
+                                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                        <span class="text-gray-500 sm:text-sm">Rp</span>
+                                    </div>
+                                    <input type="number" name="harga" id="harga" 
+                                           class="block w-full rounded-md border-gray-300 pl-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" 
+                                           placeholder="15000" 
+                                           value="{{ old('harga') }}" 
+                                           required min="0">
+                                </div>
+                                <x-input-error :messages="$errors->get('harga')" class="mt-2" />
+                            </div>
+
+                            <div>
+                                <x-input-label for="stok" :value="__('Stok Awal')" />
+                                <x-text-input id="stok" class="block mt-1 w-full" type="number" name="stok" :value="old('stok')" required min="0" placeholder="100" />
+                                <x-input-error :messages="$errors->get('stok')" class="mt-2" />
+                            </div>
                         </div>
 
-                        <div class="flex items-center justify-end gap-4">
-                            <a href="{{ route('kasir.items.index') }}" class="text-gray-600 hover:text-gray-900 underline">
+                        <div class="flex items-center justify-end gap-4 border-t pt-4">
+                            <a href="{{ route('kasir.items.index') }}" class="text-gray-600 hover:text-gray-900 underline font-medium">
                                 Batal
                             </a>
                             
-                            <x-primary-button id="submitBtn">
+                            <x-primary-button id="submitBtn" class="bg-indigo-600 hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900">
                                 {{ __('Simpan Menu') }}
                             </x-primary-button>
                         </div>
@@ -62,7 +84,7 @@
     <script>
         document.getElementById('uploadForm').addEventListener('submit', function() {
             var btn = document.getElementById('submitBtn');
-            // Ubah teks tombol dan matikan agar tidak diklik dua kali
+            // Ubah teks tombol dan matikan agar tidak diklik dua kali saat upload
             btn.innerHTML = 'Sedang Mengupload...';
             btn.disabled = true;
             btn.classList.add('opacity-50', 'cursor-not-allowed');
