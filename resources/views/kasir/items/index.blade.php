@@ -26,13 +26,7 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     
-                    {{-- Notifikasi Sukses --}}
-                    @if(session('success'))
-                        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded shadow-sm" role="alert">
-                            <p class="font-bold">Sukses!</p>
-                            <p>{{ session('success') }}</p>
-                        </div>
-                    @endif
+                    {{-- [DIHAPUS] Bagian notifikasi manual dihapus agar tidak double --}}
 
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 align-middle">
@@ -69,10 +63,10 @@
                                             @endif
                                         </td>
 
-                                        {{-- 3. NAMA & DESKRIPSI (Digabung agar rapi) --}}
+                                        {{-- 3. NAMA & DESKRIPSI --}}
                                         <td class="px-6 py-4">
                                             <div class="text-sm font-bold text-gray-900 text-lg">{{ $item->nama }}</div>
-                                            {{-- Menampilkan deskripsi yang dipotong jika terlalu panjang --}}
+                                            {{-- Menampilkan deskripsi yang dipotong --}}
                                             <div class="text-xs text-gray-500 mt-1 max-w-xs truncate">
                                                 {{ \Illuminate\Support\Str::limit($item->deskripsi ?? 'Tidak ada deskripsi', 80) }}
                                             </div>
