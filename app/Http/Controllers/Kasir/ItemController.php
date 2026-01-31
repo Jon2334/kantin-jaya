@@ -20,13 +20,14 @@ class ItemController extends Controller
         return view('kasir.items.create');
     }
 
-    // --- FUNGSI BANTUAN UNTUK KONEKSI ---
+    // --- FUNGSI BANTUAN UNTUK KONEKSI CLOUDINARY ---
     private function getCloudinaryInstance()
     {
         $cloudName = env('CLOUDINARY_CLOUD_NAME');
         $apiKey    = env('CLOUDINARY_API_KEY');
         $apiSecret = env('CLOUDINARY_API_SECRET');
 
+        // Jika env variabel kosong, coba ambil dari CLOUDINARY_URL
         if (empty($cloudName)) {
             $url = env('CLOUDINARY_URL');
             if ($url) {
@@ -38,7 +39,7 @@ class ItemController extends Controller
         }
 
         if (empty($cloudName) || empty($apiKey) || empty($apiSecret)) {
-            throw new \Exception("Kredensial Cloudinary bermasalah.");
+            throw new \Exception("Kredensial Cloudinary bermasalah. Cek file .env Anda.");
         }
 
         return new Cloudinary([
@@ -55,16 +56,19 @@ class ItemController extends Controller
 
     public function store(Request $request)
     {
+        // 1. Validasi
         $request->validate([
-            'nama'  => 'required|string|max:255',
-            'harga' => 'required|integer|min:0',
-            'stok'  => 'required|integer|min:0',
-            'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'nama'      => 'required|string|max:255',
+            'deskripsi' => 'nullable|string', // Tambahkan validasi deskripsi
+            'harga'     => 'required|integer|min:0',
+            'stok'      => 'required|integer|min:0',
+            'image'     => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
         try {
             $imageUrl = null;
 
+            // 2. Upload Gambar
             if ($request->hasFile('image')) {
                 $cloudinary = $this->getCloudinaryInstance();
                 $result = $cloudinary->uploadApi()->upload(
@@ -78,12 +82,13 @@ class ItemController extends Controller
                 $imageUrl = $result['secure_url']; 
             }
 
+            // 3. Simpan ke Database
             Item::create([
-                'nama'  => $request->nama,
-                'deskripsi' => $request->deskripsi,
-                'harga' => $request->harga,
-                'stok'  => $request->stok,
-                'image' => $imageUrl,
+                'nama'      => $request->nama,
+                'deskripsi' => $request->deskripsi, // Simpan deskripsi
+                'harga'     => $request->harga,
+                'stok'      => $request->stok,
+                'image'     => $imageUrl,
             ]);
 
             return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil ditambahkan!');
@@ -105,16 +110,25 @@ class ItemController extends Controller
 
     public function update(Request $request, Item $item)
     {
+        // 1. Validasi
         $request->validate([
-            'nama'  => 'required|string|max:255',
-            'harga' => 'required|integer|min:0',
-            'stok'  => 'required|integer|min:0',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'nama'      => 'required|string|max:255',
+            'deskripsi' => 'nullable|string', // Validasi deskripsi saat edit
+            'harga'     => 'required|integer|min:0',
+            'stok'      => 'required|integer|min:0',
+            'image'     => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
         try {
-            $data = $request->only(['nama', 'harga', 'stok']);
+            // 2. Siapkan Data Update
+            $data = [
+                'nama'      => $request->nama,
+                'deskripsi' => $request->deskripsi, // Masukkan deskripsi baru
+                'harga'     => $request->harga,
+                'stok'      => $request->stok,
+            ];
 
+            // 3. Cek Jika Ada Gambar Baru
             if ($request->hasFile('image')) {
                 $cloudinary = $this->getCloudinaryInstance();
                 $result = $cloudinary->uploadApi()->upload(
@@ -128,8 +142,10 @@ class ItemController extends Controller
                 $data['image'] = $result['secure_url'];
             }
 
+            // 4. Update Database
             $item->update($data);
-            return redirect()->route('kasir.items.index')->with('success', 'Menu diperbarui!');
+            
+            return redirect()->route('kasir.items.index')->with('success', 'Menu berhasil diperbarui!');
 
         } catch (\Exception $e) {
             return back()->withInput()->withErrors(['image' => 'Error: ' . $e->getMessage()]);
@@ -142,23 +158,20 @@ class ItemController extends Controller
         return redirect()->route('kasir.items.index')->with('success', 'Menu dihapus!');
     }
     
-    // --- PERBAIKAN DI FUNGSI INI ---
+    // --- FUNGSI CETAK LAPORAN ---
     public function printMenu()
     {
         $items = Item::all();
         $tanggal = date('d-m-Y');
 
-        // Loop setiap item untuk mengubah URL Cloudinary menjadi Base64
-        // Agar bisa dibaca oleh PDF generator atau Printer tanpa error SSL
+        // Proses konversi gambar ke Base64 agar bisa dicetak offline/PDF
         foreach ($items as $item) {
-            // Siapkan property baru sementara
             $item->base64_image = null; 
 
             if (!empty($item->image)) {
                 try {
-                    // Cek 1: Apakah ini URL Online (Cloudinary)
+                    // Cek jika URL Online (Cloudinary)
                     if (filter_var($item->image, FILTER_VALIDATE_URL)) {
-                        // Setup context untuk bypass SSL (jaga-jaga error sertifikat)
                         $arrContextOptions = [
                             "ssl" => [
                                 "verify_peer" => false,
@@ -166,16 +179,14 @@ class ItemController extends Controller
                             ],
                         ];
                         
-                        // Download gambar ke memory server sementara
                         $imageContent = file_get_contents($item->image, false, stream_context_create($arrContextOptions));
                         
                         if ($imageContent !== false) {
                             $base64 = base64_encode($imageContent);
-                            // Set string base64 yang siap pakai di <img src>
                             $item->base64_image = 'data:image/jpeg;base64,' . $base64; 
                         }
                     }
-                    // Cek 2: Apakah ini file Local (jaga-jaga ada data lama bukan Cloudinary)
+                    // Cek jika File Lokal
                     elseif (file_exists(public_path($item->image))) {
                         $path = public_path($item->image);
                         $type = pathinfo($path, PATHINFO_EXTENSION);
@@ -183,7 +194,6 @@ class ItemController extends Controller
                         $item->base64_image = 'data:image/' . $type . ';base64,' . base64_encode($data);
                     }
                 } catch (\Exception $e) {
-                    // Jika gagal download gambar, biarkan null agar tidak error seluruh halaman
                     $item->base64_image = null;
                 }
             }
