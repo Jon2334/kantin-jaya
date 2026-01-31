@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Item; // Pastikan ini Item (Sesuai file Item.php kamu)
+use App\Models\Item; 
 
 class SearchController extends Controller
 {
@@ -18,15 +18,14 @@ class SearchController extends Controller
             return redirect()->back();
         }
 
-        // 1. KASIR & PEMBELI: Mencari Menu Makanan
-        if ($role === 'Kasir' || $role === 'pembeli') {
-            // PERBAIKAN: Menggunakan 'nama' (bukan 'name') dan menghapus titik tiga (...)
+        // HANYA JALANKAN PENCARIAN JIKA ROLE ADALAH PEMBELI
+        if ($role === 'pembeli') {
             $results = Item::where('nama', 'LIKE', "%{$query}%") 
                            ->get();
+        } else {
+            // Jika role lain (Kasir/Dapur) mencoba akses URL search manual, kembalikan kosong atau redirect
+            return redirect()->back()->with('error', 'Fitur pencarian hanya untuk pembeli.');
         }
-        
-        // 2. DAPUR: (Opsional)
-        // elseif ($role === 'dapur') { ... }
 
         return view('search.results', compact('results', 'query', 'role'));
     }

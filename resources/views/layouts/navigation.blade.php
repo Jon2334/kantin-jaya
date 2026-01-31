@@ -1,7 +1,8 @@
 <nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
-            <div class="flex flex-1"> <div class="shrink-0 flex items-center">
+            <div class="flex flex-1">
+                <div class="shrink-0 flex items-center">
                     <a href="#">
                         <h1 class="font-bold text-xl text-indigo-600">KANTIN JAYA</h1>
                     </a>
@@ -9,42 +10,24 @@
 
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     @if(Auth::user()->role == 'kasir')
-                        <x-nav-link :href="route('kasir.dashboard')" :active="request()->routeIs('kasir.dashboard')">
-                            {{ __('Dashboard Kasir') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('kasir.items.index')" :active="request()->routeIs('kasir.items.*')">
-                            {{ __('Kelola Stok Menu') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('kasir.procurement.index')" :active="request()->routeIs('kasir.procurement.*')">
-                            {{ __('Belanja Stok (Supplier)') }}
-                        </x-nav-link>
+                        <x-nav-link :href="route('kasir.dashboard')" :active="request()->routeIs('kasir.dashboard')">{{ __('Dashboard Kasir') }}</x-nav-link>
+                        <x-nav-link :href="route('kasir.items.index')" :active="request()->routeIs('kasir.items.*')">{{ __('Kelola Stok') }}</x-nav-link>
                     @endif
 
                     @if(Auth::user()->role == 'dapur')
-                        <x-nav-link :href="route('dapur.dashboard')" :active="request()->routeIs('dapur.dashboard')">
-                            {{ __('Monitor Pesanan (KDS)') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('dapur.inventory.index')" :active="request()->routeIs('dapur.inventory.*')">
-                            {{ __('Stok Bahan Baku') }}
-                        </x-nav-link>
+                        <x-nav-link :href="route('dapur.dashboard')" :active="request()->routeIs('dapur.dashboard')">{{ __('Monitor Pesanan') }}</x-nav-link>
                     @endif
 
                     @if(Auth::user()->role == 'pembeli')
-                        <x-nav-link :href="route('pembeli.dashboard')" :active="request()->routeIs('pembeli.dashboard')">
-                            {{ __('Pesan Makanan') }}
-                        </x-nav-link>
+                        <x-nav-link :href="route('pembeli.dashboard')" :active="request()->routeIs('pembeli.dashboard')">{{ __('Pesan Makanan') }}</x-nav-link>
                     @endif
 
                     @if(Auth::user()->role == 'supplier')
-                        <x-nav-link :href="route('supplier.dashboard')" :active="request()->routeIs('supplier.dashboard')">
-                            {{ __('Dashboard Pesanan') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('supplier.products.index')" :active="request()->routeIs('supplier.products.*')">
-                            {{ __('Kelola Katalog & Gudang') }}
-                        </x-nav-link>
+                        <x-nav-link :href="route('supplier.dashboard')" :active="request()->routeIs('supplier.dashboard')">{{ __('Dashboard Supplier') }}</x-nav-link>
                     @endif
                 </div>
 
+                @if(Auth::user()->role == 'pembeli')
                 <div class="hidden sm:flex items-center ms-6 flex-1 max-w-md">
                     <form action="{{ route('search') }}" method="GET" class="w-full">
                         <div class="relative">
@@ -53,11 +36,12 @@
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
                                 </svg>
                             </div>
-                            <input type="search" name="query" class="block w-full p-2 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Cari menu atau pesanan..." required>
+                            <input type="search" name="query" class="block w-full p-2 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Cari menu..." required>
                         </div>
                     </form>
                 </div>
-            </div>
+                @endif
+                </div>
 
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
@@ -73,15 +57,10 @@
                     </x-slot>
 
                     <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
-                        </x-dropdown-link>
+                        <x-dropdown-link :href="route('profile.edit')">{{ __('Profile') }}</x-dropdown-link>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault(); this.closest('form').submit();">
-                                {{ __('Log Out') }}
-                            </x-dropdown-link>
+                            <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">{{ __('Log Out') }}</x-dropdown-link>
                         </form>
                     </x-slot>
                 </x-dropdown>
@@ -99,21 +78,21 @@
     </div>
 
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
+        
+        @if(Auth::user()->role == 'pembeli')
         <div class="pt-2 pb-1 px-4 border-b border-gray-200">
             <form action="{{ route('search') }}" method="GET">
-                <input type="search" name="query" class="block w-full p-2 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50" placeholder="Cari...">
+                <input type="search" name="query" class="block w-full p-2 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50" placeholder="Cari menu...">
             </form>
         </div>
-
+        @endif
         <div class="pt-2 pb-3 space-y-1">
             @if(Auth::user()->role == 'kasir')
                 <x-responsive-nav-link :href="route('kasir.dashboard')" :active="request()->routeIs('kasir.dashboard')">{{ __('Dashboard Kasir') }}</x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('kasir.items.index')" :active="request()->routeIs('kasir.items.*')">{{ __('Kelola Stok Menu') }}</x-responsive-nav-link>
             @endif
             @if(Auth::user()->role == 'pembeli')
                 <x-responsive-nav-link :href="route('pembeli.dashboard')" :active="request()->routeIs('pembeli.dashboard')">{{ __('Pesan Makanan') }}</x-responsive-nav-link>
             @endif
-            {{-- Tambahkan role lainnya di sini seperti struktur sebelumnya --}}
         </div>
 
         <div class="pt-4 pb-1 border-t border-gray-200">
