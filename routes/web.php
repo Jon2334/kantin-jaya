@@ -6,8 +6,11 @@ use Illuminate\Support\Facades\URL;     // PENTING: Untuk HTTPS di Vercel
 use Illuminate\Support\Facades\Artisan; // PENTING: Untuk maintenance command
 use App\Http\Controllers\ProfileController;
 
-// --- IMPORT CONTROLLER AUTH (Termasuk OTP) ---
-use App\Http\Controllers\Auth\OtpController; // [BARU] Tambahkan ini
+// --- IMPORT CONTROLLER AUTH ---
+use App\Http\Controllers\Auth\OtpController;
+
+// --- IMPORT CONTROLLER UMUM [BARU] ---
+use App\Http\Controllers\SearchController; // <--- Tambahkan ini
 
 // --- IMPORT CONTROLLER KASIR ---
 use App\Http\Controllers\Kasir\DashboardController as KasirDashboard;
@@ -32,12 +35,12 @@ use App\Http\Controllers\Supplier\InventoryController as SupplierInventory;
 |--------------------------------------------------------------------------
 */
 
-// --- SETTING VERCEL: Paksa HTTPS (Wajib untuk Cloudinary & Keamanan) ---
+// --- SETTING VERCEL: Paksa HTTPS ---
 if (app()->environment('production')) {
     URL::forceScheme('https');
 }
 
-// 1. Route Utama (Redirect Otomatis berdasarkan Role)
+// 1. Route Utama
 Route::get('/', function () {
     if (Auth::check()) {
         $role = Auth::user()->role;
@@ -52,61 +55,50 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// -----------------------------------------------------------------------------
-// [BARU] ROUTE OTP (VERIFIKASI EMAIL)
-// Diletakkan di luar middleware 'auth' karena user belum login saat input OTP
-// -----------------------------------------------------------------------------
+// Route OTP (Guest)
 Route::middleware('guest')->group(function () {
     Route::get('/verify-otp', [OtpController::class, 'create'])->name('otp.verify');
     Route::post('/verify-otp', [OtpController::class, 'store'])->name('otp.store');
     Route::post('/resend-otp', [OtpController::class, 'resendOtp'])->name('otp.resend');
 });
 
-// 2. Profil User
+// 2. Profil User & FITUR UMUM (Search)
 Route::middleware('auth')->group(function () {
+    // --- [BARU] ROUTE PENCARIAN ---
+    Route::get('/search', [SearchController::class, 'index'])->name('search');
+
+    // Route Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 // -----------------------------------------------------------------------------
-// 3. ROUTE KASIR (Group name: 'kasir.')
+// 3. ROUTE KASIR
 // -----------------------------------------------------------------------------
 Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->group(function () {
-    // Dashboard
     Route::get('/dashboard', [KasirDashboard::class, 'index'])->name('dashboard');
-    
-    // Transaksi
     Route::post('/order/{id}/selesai', [KasirDashboard::class, 'cetakStruk'])->name('order.selesai');
-    
-    // Cetak Menu
     Route::get('/items/print', [ItemController::class, 'printMenu'])->name('items.print');
-    
-    // Kelola Stok Menu (CRUD + Upload Cloudinary ada di sini)
     Route::resource('items', ItemController::class);
-    
-    // Belanja Stok ke Supplier
     Route::get('/procurement/print', [ProcurementController::class, 'print'])->name('procurement.print');
     Route::get('/procurement', [ProcurementController::class, 'index'])->name('procurement.index');
     Route::post('/procurement', [ProcurementController::class, 'store'])->name('procurement.store');
 });
 
 // -----------------------------------------------------------------------------
-// 4. ROUTE DAPUR (Group name: 'dapur.')
+// 4. ROUTE DAPUR
 // -----------------------------------------------------------------------------
 Route::middleware(['auth', 'role:dapur'])->prefix('dapur')->name('dapur.')->group(function () {
-    // KDS (Kitchen Display System)
     Route::get('/dashboard', [KdsController::class, 'index'])->name('dashboard');
     Route::patch('/order/{id}/update', [KdsController::class, 'updateStatus'])->name('order.update');
-    
-    // Inventory Bahan Baku
     Route::get('/inventory/print', [DapurInventory::class, 'print'])->name('inventory.print');
     Route::post('/inventory/{id}/kurangi', [DapurInventory::class, 'kurangiStok'])->name('inventory.kurangi');
     Route::resource('inventory', DapurInventory::class);
 });
 
 // -----------------------------------------------------------------------------
-// 5. ROUTE PEMBELI (Group name: 'pembeli.')
+// 5. ROUTE PEMBELI
 // -----------------------------------------------------------------------------
 Route::middleware(['auth', 'role:pembeli'])->prefix('pembeli')->name('pembeli.')->group(function () {
     Route::get('/dashboard', [PembeliDashboard::class, 'index'])->name('dashboard');
@@ -114,55 +106,28 @@ Route::middleware(['auth', 'role:pembeli'])->prefix('pembeli')->name('pembeli.')
 });
 
 // -----------------------------------------------------------------------------
-// 6. ROUTE SUPPLIER (Group name: 'supplier.')
+// 6. ROUTE SUPPLIER
 // -----------------------------------------------------------------------------
 Route::middleware(['auth', 'role:supplier'])->prefix('supplier')->name('supplier.')->group(function () {
     Route::get('/dashboard', [SupplierDashboard::class, 'index'])->name('dashboard');
     Route::get('/struk/{id}', [SupplierDashboard::class, 'cetakStruk'])->name('struk');
     Route::post('/confirm/{id}', [SupplierDashboard::class, 'confirmPayment'])->name('confirm');
     Route::post('/kirim/{id}', [SupplierDashboard::class, 'kirimBarang'])->name('kirim');
-    
-    // Kelola Katalog Barang
     Route::resource('products', SupplierInventory::class);
 });
 
 require __DIR__.'/auth.php';
 
-// =========================================================================
-// 7. ROUTE PENYELAMAT (DEBUGGING VERCEL)
-// Akses route ini di: https://nama-app-anda.vercel.app/fix-cloudinary
-// =========================================================================
+// Route Debugging Cloudinary
 Route::get('/fix-cloudinary', function () {
     try {
-        // 1. Bersihkan Cache (Penting setelah update env di Vercel)
         Artisan::call('config:clear');
         Artisan::call('route:clear');
         Artisan::call('view:clear');
-        
-        // 2. Cek Koneksi ENV
         $envUrl = env('CLOUDINARY_URL');
-        
-        // 3. Output Status
-        $statusEnv = !empty($envUrl) 
-            ? '<span style="color:green; font-weight:bold;">✅ TERBACA</span>' 
-            : '<span style="color:red; font-weight:bold;">❌ TIDAK TERBACA / NULL</span>';
-
-        return "
-            <div style='font-family: sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px;'>
-                <h1 style='color: #333;'>🛠️ Status Konfigurasi Cloudinary</h1>
-                <p>Route ini berfungsi untuk membersihkan cache dan mengecek apakah Environment Variables Vercel sudah masuk ke Laravel.</p>
-                
-                <hr style='margin: 20px 0;'>
-                
-                <div style='background: #fff; padding: 15px; border-radius: 5px; border: 1px solid #eee;'>
-                    <p><strong>Status ENV (CLOUDINARY_URL):</strong> $statusEnv</p>
-                    <p style='font-size: 12px; color: #666;'>
-                        Value: " . ($envUrl ? substr($envUrl, 0, 15) . '... (disensor)' : 'KOSONG') . "
-                    </p>
-                </div>
-            </div>
-        ";
+        $statusEnv = !empty($envUrl) ? '<span style="color:green; font-weight:bold;">✅ TERBACA</span>' : '<span style="color:red; font-weight:bold;">❌ TIDAK TERBACA</span>';
+        return "Status Cloudinary: $statusEnv";
     } catch (\Exception $e) {
-        return "<h2 style='color:red'>ERROR SYSTEM:</h2> " . $e->getMessage();
+        return $e->getMessage();
     }
 });
