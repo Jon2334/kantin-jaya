@@ -5,7 +5,7 @@
                 {{ __('Monitor Dapur (KDS)') }}
             </h2>
             <div class="text-sm text-gray-500" id="timer">
-                Auto-refresh dalam <span id="countdown" class="font-bold">30</span> detik
+                Auto-refresh dalam <span id="countdown" class="font-bold text-indigo-600">30</span> detik
             </div>
         </div>
     </x-slot>
@@ -13,7 +13,6 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             
-            <!-- Grid Layout -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @forelse($orders as $order)
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg border-t-4 {{ $order->status == 'pending' ? 'border-yellow-500' : 'border-blue-500' }} flex flex-col h-full">
@@ -58,20 +57,20 @@
                 @empty
                     <div class="col-span-full text-center py-10 bg-white rounded-lg shadow">
                         <p class="text-gray-500 text-xl">Tidak ada pesanan aktif.</p>
+                        <p class="text-sm text-gray-400">Halaman akan refresh otomatis untuk mengecek pesanan baru.</p>
                     </div>
                 @endforelse
             </div>
         </div>
     </div>
 
-    <!-- MODAL PILIH BAHAN BAKU -->
     <div id="modalBahan" class="fixed inset-0 bg-gray-900 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 transition-opacity">
         <div class="relative top-10 mx-auto p-0 border w-full max-w-lg shadow-lg rounded-lg bg-white">
             <div class="bg-gray-100 px-5 py-4 border-b rounded-t-lg flex justify-between items-center">
                 <h3 class="text-lg font-bold text-gray-800">
                     Catat Pemakaian Bahan <span id="modalOrderTitle" class="text-indigo-600"></span>
                 </h3>
-                <button onclick="tutupModal()" class="text-gray-400 hover:text-gray-600">&times;</button>
+                <button onclick="tutupModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
             </div>
             <div class="p-5 max-h-[60vh] overflow-y-auto">
                 <p class="text-sm text-gray-500 mb-4">Masukkan jumlah bahan yang dipakai.</p>
@@ -92,7 +91,6 @@
                                         <option value="{{ $inv->satuan }}">{{ $inv->satuan }}</option>
                                         
                                         @php 
-                                            // Bersihkan spasi dan huruf besar
                                             $satuan = strtolower(trim($inv->satuan)); 
                                         @endphp
 
@@ -118,25 +116,56 @@
     </div>
 
     <script>
+        // Set waktu awal
         let timeLeft = 30;
         const countdownEl = document.getElementById('countdown');
-        setInterval(() => {
+
+        // Simpan interval ID agar bisa dihentikan jika perlu
+        const timerInterval = setInterval(() => {
+            // Cek apakah modal sedang TERSEMBUNYI (hidden)
+            // Kita hanya refresh jika user TIDAK sedang membuka modal input bahan
             if (document.getElementById('modalBahan').classList.contains('hidden')) {
-                if (timeLeft <= 0) window.location.reload();
-                else { countdownEl.innerText = timeLeft; timeLeft--; }
+                
+                // Kurangi waktu dulu
+                timeLeft--;
+
+                // Update tampilan angka
+                if (timeLeft >= 0) {
+                    countdownEl.innerText = timeLeft;
+                }
+
+                // Jika waktu habis
+                if (timeLeft <= 0) {
+                    // Hentikan interval agar tidak looping reload
+                    clearInterval(timerInterval);
+                    
+                    // Beri feedback visual
+                    countdownEl.innerText = "Refreshing...";
+                    
+                    // Reload halaman
+                    window.location.reload();
+                }
             }
-        }, 1000);
+        }, 1000); // Jalan setiap 1000ms (1 detik)
 
         function bukaModalSelesai(orderId, orderCode) {
             document.getElementById('modalOrderTitle').innerText = orderCode;
             let url = "{{ route('dapur.order.update', ':id') }}";
             url = url.replace(':id', orderId);
             document.getElementById('formSelesai').action = url;
+            
+            // Reset input form
             document.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
+            
+            // Tampilkan modal
             document.getElementById('modalBahan').classList.remove('hidden');
         }
+
         function tutupModal() {
             document.getElementById('modalBahan').classList.add('hidden');
+            // Reset timer ke 30 detik saat modal ditutup agar user punya waktu melihat pesanan lagi
+            timeLeft = 30; 
+            countdownEl.innerText = timeLeft;
         }
     </script>
 </x-app-layout>
