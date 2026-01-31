@@ -39,7 +39,7 @@
                 <ul class="space-y-2 text-sm text-gray-600">
                     <li class="flex items-center gap-2">
                         <i class="fas fa-map-marker-alt text-indigo-500 w-5"></i>
-                        Jl. Hang Tuah No. 8, Madras Hulu, Medan Polonia, Medan, Sumatera Utara
+                        Jl. Hang Tuah No. 8, Madras Hulu, Medan Polonia, Medan, Sumatera Utara
                     </li>
                     <li class="flex items-center gap-2">
                         <i class="fas fa-envelope text-indigo-500 w-5"></i>
@@ -53,13 +53,13 @@
                 
                 <!-- Social Media Icons -->
                 <div class="flex space-x-4 mt-2">
-                    <a href="#" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-indigo-600 hover:text-white transition duration-300">
+                    <a href="https://www.instagram.com/krisjon_04" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-indigo-600 hover:text-white transition duration-300">
                         <i class="fab fa-facebook-f"></i>
                     </a>
-                    <a href="#" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-pink-600 hover:text-white transition duration-300">
+                    <a href="https://www.instagram.com/krisjon_04" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-pink-600 hover:text-white transition duration-300">
                         <i class="fab fa-instagram"></i>
                     </a>
-                    <a href="#" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-blue-400 hover:text-white transition duration-300">
+                    <a href="https://www.instagram.com/krisjon_04" class="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-blue-400 hover:text-white transition duration-300">
                         <i class="fab fa-twitter"></i>
                     </a>
                 </div>
