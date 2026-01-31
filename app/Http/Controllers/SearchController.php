@@ -4,8 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Controller; // Tambahkan ini agar aman
-use App\Models\Item; // PASTEKAN NAMA FILE MODEL KAMU (Cek folder app/Models)
+use App\Models\Item; // Pastikan ini Item (Sesuai file Item.php kamu)
 
 class SearchController extends Controller
 {
@@ -13,26 +12,21 @@ class SearchController extends Controller
     {
         $query = $request->input('query');
         $role = Auth::user()->role;
-        $results = collect(); // Default koleksi kosong
+        $results = collect(); 
 
-        // Validasi input agar tidak error jika kosong
         if (!$query) {
             return redirect()->back();
         }
 
-        // LOGIKA PENCARIAN BERDASARKAN ROLE
         // 1. KASIR & PEMBELI: Mencari Menu Makanan
         if ($role === 'kasir' || $role === 'pembeli') {
-            // Perbaikan baris 27 yang error sebelumnya
-            $results = Item::where('name', 'LIKE', "%{$query}%")
-                           ->orWhere('description', 'LIKE', "%{$query}%")
+            // PERBAIKAN: Menggunakan 'nama' (bukan 'name') dan menghapus titik tiga (...)
+            $results = Item::where('nama', 'LIKE', "%{$query}%") 
                            ->get();
         }
         
-        // 2. DAPUR: Mencari Stok Bahan (Jika diperlukan)
-        // elseif ($role === 'dapur') {
-        //      $results = \App\Models\Inventory::where('nama_bahan', 'LIKE', "%{$query}%")->get();
-        // }
+        // 2. DAPUR: (Opsional)
+        // elseif ($role === 'dapur') { ... }
 
         return view('search.results', compact('results', 'query', 'role'));
     }
