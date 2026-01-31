@@ -1,10 +1,3 @@
-Berikut adalah perbaikan lengkap untuk file `navigation.blade.php` kamu.
-
-Saya telah menyisipkan **Kolom Pencarian** di dua tempat (Tampilan Desktop & Tampilan HP), dan membungkusnya dengan logika `@if(Auth::user()->role == 'pembeli')` agar **hanya muncul untuk akun Pembeli**.
-
-Silakan **Copy & Paste** semua kode di bawah ini:
-
-```html
 <nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
@@ -207,5 +200,3 @@ Silakan **Copy & Paste** semua kode di bawah ini:
         </div>
     </div>
 </nav>
-
-```
