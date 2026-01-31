@@ -19,7 +19,7 @@ class SearchController extends Controller
         }
 
         // 1. KASIR & PEMBELI: Mencari Menu Makanan
-        if ($role === 'kasir' || $role === 'pembeli') {
+        if ($role === 'Kasir' || $role === 'pembeli') {
             // PERBAIKAN: Menggunakan 'nama' (bukan 'name') dan menghapus titik tiga (...)
             $results = Item::where('nama', 'LIKE', "%{$query}%") 
                            ->get();
