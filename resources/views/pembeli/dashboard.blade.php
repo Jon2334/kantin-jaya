@@ -49,13 +49,26 @@
                                             @endif
                                         </div>
 
-                                        {{-- [BARU] MENAMPILKAN DESKRIPSI --}}
-                                        <div class="mb-3">
-                                            <p class="text-sm text-gray-500 line-clamp-2 leading-relaxed" title="{{ $item->deskripsi }}">
+                                        {{-- [FITUR BARU] DESKRIPSI BACA SELENGKAPNYA --}}
+                                        <div class="mb-3" x-data="{ expanded: false }">
+                                            {{-- Default line-clamp-2 (potong 2 baris), jika expanded=true maka tampil semua --}}
+                                            <p class="text-sm text-gray-500 leading-relaxed transition-all duration-200"
+                                               :class="expanded ? '' : 'line-clamp-2'"
+                                               title="{{ $item->deskripsi }}">
                                                 {{ $item->deskripsi ?? 'Tidak ada deskripsi untuk menu ini.' }}
                                             </p>
+
+                                            {{-- Tombol hanya muncul jika deskripsi lebih dari 60 karakter --}}
+                                            @if(strlen($item->deskripsi) > 60)
+                                                <button type="button" 
+                                                        @click="expanded = ! expanded" 
+                                                        class="text-xs text-indigo-600 font-bold mt-1 hover:underline focus:outline-none flex items-center gap-1">
+                                                    <span x-show="!expanded">Baca Selengkapnya &darr;</span>
+                                                    <span x-show="expanded">Tutup &uarr;</span>
+                                                </button>
+                                            @endif
                                         </div>
-                                        {{-- ============================== --}}
+                                        {{-- ========================================== --}}
 
                                         <p class="text-indigo-600 font-bold mb-4 text-lg">Rp {{ number_format($item->harga, 0, ',', '.') }}</p>
 
